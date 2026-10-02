@@ -1,0 +1,61 @@
+# 우리집 할 일 (가족 할 일 분담 앱)
+
+가족 구성원에게 할 일을 배정하고, 누가 무엇을 했는지 한눈에 보는 PWA. 빌드 과정 없이 정적 파일만으로 동작합니다.
+
+## 설치 순서
+
+1. **Supabase 프로젝트 만들기** (무료 플랜 가능)
+2. **Authentication → Sign In / Providers → Anonymous sign-ins 켜기** (회원가입 없이 기기별 자동 세션을 쓰기 위해 필요)
+3. **SQL Editor** 에 `supabase/schema.sql` 전체를 붙여넣고 Run
+4. **Project Settings → API** 의 `Project URL` 과 `anon public key` 를 `js/config.js` 에 입력
+5. 폴더 전체를 **GitHub Pages / Netlify / Vercel** 등 HTTPS 정적 호스팅에 올리기 (PWA 설치와 공유 기능은 HTTPS 필요)
+6. 폰에서 열어 **가족 공간 만들기** → 가족에게 코드(또는 초대 링크)와 비밀번호 전달 → 홈 화면에 추가
+
+로컬 테스트: `python3 -m http.server 8000` 후 `http://localhost:8000`
+
+## 파일 구조 (UI ↔ 서비스 ↔ DB 3계층)
+
+```
+index.html / manifest.webmanifest / sw.js     PWA 껍데기
+css/style.css                                 전체 스타일 (좁은 화면=하단 탭, 600px 이상=오른쪽 세로 탭)
+js/config.js                                  Supabase 주소/키
+js/app.js                                     시작점: 세션 → 가족 공간 열기 → 실시간 구독 → 이벤트 연결
+js/state.js                                   앱 상태 저장소
+js/prefs.js                                   기기별 설정(localStorage): 이 기기 주인, 마지막 필터, 가족 공간
+js/actions.js                                 서비스 계층: UI 는 여기만 호출 (DB 호출 → 상태 갱신)
+js/data/        ← DB 접근 코드 (Supabase 를 아는 유일한 곳)
+  client.js  spaces.js  members.js  tasks.js  trips.js  realtime.js  backup.js
+js/logic/       ← 순수 계산 (DB/화면 모름, 테스트 쉬움)
+  dates.js  recurrence.js(반복 규칙)  filters.js(담당자·기간·완료 조합)  share.js(공유 텍스트)
+js/ui/          ← 화면
+  layout.js(탭/껍데기) home.js tasks.js trips.js taskForm.js settings.js gate.js sheet.js components.js
+supabase/schema.sql                           테이블 + 보안(RLS) + 실시간 설정
+```
+
+## DB 구조
+
+| 테이블 | 역할 |
+|---|---|
+| `spaces` | 가족 공간 (코드, 이름) |
+| `space_secrets` | 비밀번호 해시 (클라이언트 접근 불가) |
+| `space_access` | 어떤 기기(익명 사용자)가 어떤 공간에 들어왔는지 |
+| `members` | 가족 구성원 (이름, 색상, 순서) |
+| `trips` | 외출/여행 (제목, 기간, 장소, 메모, 아이콘) |
+| `tasks` | 할 일 + 반복 설정(`repeat_*`) + 담당자(`assignee_id`) + 여행 연결(`trip_id`) |
+| `task_completions` | 반복 업무의 날짜별 완료 기록 |
+
+- 모든 데이터 테이블에 `space_id` 가 있어 한 DB 에서 여러 가족 공간을 안전하게 분리합니다.
+- 반복 업무는 날짜별 행을 미리 만들지 않고, 앱이 규칙(`repeat_type/interval/days/end`)으로 날짜별 할 일을 계산해 보여줍니다. 완료한 날짜만 `task_completions` 에 기록됩니다.
+- 접근 방식: 코드+비밀번호를 `join_space()` 함수가 검증 → 통과한 기기만 `space_access` 에 등록 → RLS 가 그 공간 데이터만 허용.
+
+## 확장할 때
+
+- 새 기능의 테이블 → `data/xxx.js` (DB) → `actions.js` (상태 연결) → `ui/xxx.js` (화면) 순서로 추가
+- 새 반복 규칙 → `logic/recurrence.js` 의 `occursOn()` 에 케이스 추가
+- 새 필터 → `logic/filters.js`
+
+## 알아둘 점
+
+- 비밀번호 5회 이상 오입력 제한은 넣지 않았습니다. 가족 코드는 무작위 6자리이므로, 비밀번호는 4자리 숫자보다 길게 쓰는 것을 권장합니다.
+- 브라우저 데이터를 지우면 그 기기는 코드+비밀번호를 다시 입력해야 합니다. (가족 데이터는 유지)
+- 앱을 수정해 다시 올릴 때는 `sw.js` 의 `VERSION` 값을 올려야 폰에 새 파일이 반영됩니다.
