@@ -54,7 +54,7 @@ body.no-scroll { overflow: hidden; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
 :focus-visible { outline: 3px solid var(--accent-d); outline-offset: 2px; border-radius: 8px; }
-h2, h3 { font-family: var(--font-head); font-weight: 400; margin: 0; }
+h1, h2, h3 { font-family: var(--font-head); font-weight: 400; margin: 0; }
 ul { list-style: none; margin: 0; padding: 0; }
 small { font-size: 12.5px; }
 .muted { color: var(--muted); font-size: 14px; }
@@ -63,7 +63,7 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
 /* ---------- 껍데기 ---------- */
 .app { max-width: 1040px; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom)); }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 12px; }
-.brand { font-size: 24px; color: var(--lav-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand { font-size: 24px; color: var(--lav-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-body); }
 .icon-btn { width: 44px; height: 44px; border-radius: 50%; font-size: 24px; line-height: 1; display: grid; place-items: center; color: var(--ink); }
 .icon-btn:hover { background: var(--accent-soft); }
 
