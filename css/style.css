@@ -6,6 +6,12 @@
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'BelovedMyoeunttobak';
+    src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-1@1.0/Griun_Myoeunddobak-Rg.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+}
 
 /* 우리 가족 — 다이어리 / 미니홈피 느낌의 가족 공간 */
 :root {
@@ -25,8 +31,8 @@
   --accent: var(--sky); --accent-d: var(--sky-d); --accent-soft: var(--sky-soft);
   --danger: #d6535a;
   --nav-w: 92px;
-  --font-body: 'NostalgicGukhanbakLovely', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
-  --font-head: 'Jua', 'NostalgicGukhanbakLovely', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-body: 'NostalgicGukhanbakLovely', 'BelovedMyoeunttobak', 'Malgun Gothic', system-ui, sans-serif;
+  --font-head: 'Jua', 'BelovedMyoeunttobak', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 body[data-tab='tasks'] { --accent: var(--mint);  --accent-d: var(--mint-d);  --accent-soft: var(--mint-soft); }
 body[data-tab='trips'] { --accent: var(--lav);   --accent-d: var(--lav-d);   --accent-soft: var(--lav-soft); }
@@ -57,7 +63,7 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
 /* ---------- 껍데기 ---------- */
 .app { max-width: 1040px; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom)); }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 12px; }
-.brand { font-size: 24px; color: var(--lav-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-body); }
+.brand { font-size: 24px; color: var(--lav-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .icon-btn { width: 44px; height: 44px; border-radius: 50%; font-size: 24px; line-height: 1; display: grid; place-items: center; color: var(--ink); }
 .icon-btn:hover { background: var(--accent-soft); }
 
