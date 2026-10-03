@@ -9,7 +9,7 @@ import { renderFood } from './food.js';
 const TABS = [
   { id: 'home', ico: '🏠', label: '홈' },
   { id: 'tasks', ico: '✅', label: '할 일' },
-  { id: 'trips', ico: '🗓', label: '일정/여행' },
+  { id: 'trips', ico: '🗓', label: '일정' },
   { id: 'food', ico: '🍱', label: '먹거리' },
 ];
 
