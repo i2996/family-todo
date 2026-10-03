@@ -26,7 +26,7 @@
   --danger: #d6535a;
   --nav-w: 92px;
   --font-body: 'NostalgicGukhanbakLovely', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
-  --font-head: 'Jua', 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-head: 'Jua', 'NostalgicGukhanbakLovely', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 body[data-tab='tasks'] { --accent: var(--mint);  --accent-d: var(--mint-d);  --accent-soft: var(--mint-soft); }
 body[data-tab='trips'] { --accent: var(--lav);   --accent-d: var(--lav-d);   --accent-soft: var(--lav-soft); }
