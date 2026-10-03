@@ -57,7 +57,7 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
 /* ---------- 껍데기 ---------- */
 .app { max-width: 1040px; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom)); }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 12px; }
-.brand { font-size: 24px; color: var(--lav-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand { font-size: 24px; color: var(--lav-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'NostalgicGukhanbakLovely', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
 .icon-btn { width: 44px; height: 44px; border-radius: 50%; font-size: 24px; line-height: 1; display: grid; place-items: center; color: var(--ink); }
 .icon-btn:hover { background: var(--accent-soft); }
 
