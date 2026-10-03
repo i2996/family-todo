@@ -49,7 +49,7 @@ export function openMemberForm(member = null) {
     title: m ? '구성원 수정' : '구성원 추가',
     back: openMembers,
     body: `<form data-form="member" data-id="${m ? m.id : ''}" autocomplete="off">
-      <input class="big-input" name="name" required maxlength="12" placeholder="이름 (예: 남편)" value="${esc(m?.name)}">
+      <input class="big-input" name="name" required maxlength="12" placeholder="이름 (예: 아빠)" value="${esc(m?.name)}">
       <div class="field"><span class="label">색상</span>
         <input type="hidden" name="color" value="${esc(color)}">
         <div class="swatches">
