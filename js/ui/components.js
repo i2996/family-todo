@@ -88,4 +88,5 @@ export function errMsg(e) {
   return m;
 }
 
-export const PALETTE = ['#ff7aa2', '#b57bff', '#4f9dff', '#2ec4b6', '#3fc380', '#f4c430', '#ff9f43', '#ff6b6b', '#8d6e63', '#6c7a89'];
+// 파스텔 위주 팔레트 (체크박스·점으로 쓰여서 너무 연하지 않게)
+export const PALETTE = ['#b9a4f0', '#7fbfe8', '#6fcfb0', '#8ed08f', '#f3cf5b', '#f5a97a', '#f29bb5', '#ef8f8f', '#c3a98c', '#a0acbd'];

@@ -1,5 +1,5 @@
 // 서비스 워커: 앱 파일을 캐시해서 설치/빠른 실행 지원. Supabase 통신은 절대 가로채지 않음.
-const VERSION = 'family-todo-v2';
+const VERSION = 'family-todo-v3';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css', 'icons/icon.svg',
   'js/app.js', 'js/config.js', 'js/prefs.js', 'js/state.js', 'js/actions.js',

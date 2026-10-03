@@ -130,8 +130,8 @@ export function renderHome() {
     <div class="date-tape">${longDate(today)}</div>
     <h1>${heroDone ? '오늘 할 일 끝! 🎉' : heroTitle}</h1>
     <div class="stickers">
-      <span class="sticker">남은 일 <b>${famPending.length}</b></span>
-      <span class="sticker">완료 <b>${family.length - famPending.length}</b></span>
+      <span class="sticker" style="--mc:#9b87e0">남은 일 <b>${famPending.length}</b></span>
+      <span class="sticker" style="--mc:#5fc4a0">완료 <b>${family.length - famPending.length}</b></span>
       ${perMember.map((x) => `<span class="sticker" style="--mc:${esc(x.m.color)}"><i class="dot"></i>${esc(x.m.name)} <b>${x.n}</b></span>`).join('')}
     </div>
     ${

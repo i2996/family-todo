@@ -32,6 +32,7 @@ export function mountShell() {
 export function render() {
   const view = document.getElementById('view');
   if (!view || !state.space) return;
+  document.body.dataset.tab = state.tab; // CSS 가 탭마다 포인트 색을 바꿈
   document.getElementById('brand').textContent = `✿ ${state.space.name}`;
   const screens = { home: renderHome, tasks: renderTasks, trips: renderTrips, food: renderFood };
   view.innerHTML = (screens[state.tab] || renderHome)();

@@ -61,7 +61,7 @@ export async function addMember(p) {
 }
 export async function addDefaultMembers() {
   const defaults = [
-    ['나', '#b57bff'], ['남편', '#4f9dff'], ['첫째', '#3fc380'], ['둘째', '#ff9f43'],
+    ['나', '#b9a4f0'], ['남편', '#7fbfe8'], ['첫째', '#6fcfb0'], ['둘째', '#f5a97a'],
   ];
   for (const [name, color] of defaults) await addMember({ name, color });
 }

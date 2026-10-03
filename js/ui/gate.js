@@ -18,7 +18,7 @@ function draw() {
   if (created) return drawCreated();
   root().innerHTML = `<main class="gate">
     <div class="gate-logo">🏠</div>
-    <h1>우리집 할 일</h1>
+    <h1>우리 가족</h1>
     <p class="gate-sub">가족이 같이 쓰는 할 일 공간</p>
     <div class="seg wide" role="tablist">
       <button class="${mode === 'join' ? 'on' : ''}" data-act="gate-mode" data-v="join">들어가기</button>

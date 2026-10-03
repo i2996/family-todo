@@ -59,7 +59,7 @@ export async function importAll(sid, data, { includeFood = false } = {}) {
   const members = data.members.map((m, i) => {
     const id = crypto.randomUUID();
     memberMap.set(m.id, id);
-    return { id, space_id: sid, name: m.name, color: m.color || '#ff8fab', sort_order: m.sort_order ?? i };
+    return { id, space_id: sid, name: m.name, color: m.color || '#b9a4f0', sort_order: m.sort_order ?? i };
   });
   const trips = (data.trips || []).map((t) => {
     const id = crypto.randomUUID();
