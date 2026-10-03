@@ -16,14 +16,19 @@ export const deleteTask = async (id) => unwrap(await supabase.from('tasks').dele
 export const deleteTasksOfTrip = async (tripId) => unwrap(await supabase.from('tasks').delete().eq('trip_id', tripId));
 
 /** 한 번만 하는 일 완료/해제 */
-export const setSingleDone = async (id, done) =>
-  unwrap(await supabase.from('tasks').update({ done, done_at: done ? new Date().toISOString() : null }).eq('id', id));
+export const setSingleDone = async (id, done, doneBy = null) =>
+  unwrap(
+    await supabase
+      .from('tasks')
+      .update({ done, done_at: done ? new Date().toISOString() : null, done_by: done ? doneBy : null })
+      .eq('id', id)
+  );
 
-/** 반복 업무의 특정 날짜 완료/해제 */
-export async function setOccurrenceDone(sid, taskId, date, done) {
+/** 반복 업무의 특정 날짜 완료/해제 (doneBy: 완료한 구성원) */
+export async function setOccurrenceDone(sid, taskId, date, done, doneBy = null) {
   if (done) {
     return unwrap(
-      await supabase.from('task_completions').upsert({ task_id: taskId, occurrence_date: date, space_id: sid })
+      await supabase.from('task_completions').upsert({ task_id: taskId, occurrence_date: date, space_id: sid, done_by: doneBy })
     );
   }
   return unwrap(await supabase.from('task_completions').delete().eq('task_id', taskId).eq('occurrence_date', date));

@@ -1,6 +1,7 @@
 // 담당자 + 기간 + 완료 여부 필터를 조합해서 목록을 만든다.
 import { addDays, startOfWeekMon, labelDate, shortDate, dow, KO_DOW } from './dates.js';
 import { occurrencesInRange, overdueOccurrences } from './recurrence.js';
+import { assigneeIds, isAssignedTo } from './assign.js';
 
 export const PERIODS = [
   { id: 'today', label: '오늘' },
@@ -27,8 +28,9 @@ export function sortOccurrences(occs, members) {
     if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
-    const ma = order.has(a.task.assignee_id) ? order.get(a.task.assignee_id) : 99;
-    const mb = order.has(b.task.assignee_id) ? order.get(b.task.assignee_id) : 99;
+    const first = (t) => (order.has(assigneeIds(t)[0]) ? order.get(assigneeIds(t)[0]) : 99);
+    const ma = first(a.task);
+    const mb = first(b.task);
     if (ma !== mb) return ma - mb;
     return (a.task.created_at || '').localeCompare(b.task.created_at || '');
   });
@@ -36,7 +38,7 @@ export function sortOccurrences(occs, members) {
 
 export function filterByMember(occs, member) {
   if (!member || member === 'all') return occs;
-  return occs.filter((o) => o.task.assignee_id === member);
+  return occs.filter((o) => isAssignedTo(o.task, member)); // '온 가족' 할 일은 모든 구성원에게 보임
 }
 
 /** filter: { member: 'all' | memberId, period, status } */

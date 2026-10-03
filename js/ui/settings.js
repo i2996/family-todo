@@ -121,10 +121,10 @@ export const actions = {
   },
   'member-delete': async (el) => {
     const m = memberById(el.dataset.id);
-    const n = state.tasks.filter((t) => t.assignee_id === m.id).length;
+    const n = state.tasks.filter((t) => (t.assignee_ids || []).includes(m.id)).length;
     const ok = await confirmDialog({
       title: `${m.name} 님을 삭제할까요?`,
-      message: n ? `담당했던 할 일 ${n}개는 '담당 미정'으로 바뀌어요.` : '',
+      message: n ? `담당했던 할 일 ${n}개에서 이 사람이 빠져요. 혼자 담당했던 할 일은 '온 가족' 할 일이 돼요.` : '',
       choices: [{ label: '취소', value: false }, { label: '삭제', value: true, kind: 'danger' }],
     });
     if (!ok) return;

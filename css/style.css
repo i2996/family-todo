@@ -109,8 +109,8 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
 
 .fab {
   position: fixed; z-index: 15; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom));
-  min-height: 52px; padding: 0 22px; border-radius: 26px;
-  background: var(--accent); color: var(--ink); border: 2px solid var(--accent-d); font-family: var(--font-head); font-size: 17px;
+  width: 56px; height: 56px; padding: 0 0 3px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--ink); border: 2px solid var(--accent-d); font-family: var(--font-body); font-size: 34px; line-height: 1;
 }
 .fab:active { transform: translate(2px, 2px);  }
 @media (min-width: 600px) { .fab { right: calc(var(--nav-w) + 28px); bottom: 28px; } }
@@ -365,3 +365,15 @@ textarea { resize: vertical; }
 .exp.ok { background: var(--mint); color: #2c6b57; }
 .exp.soon { background: var(--peach); color: var(--peach-d); }
 .exp.urgent { background: var(--rose); color: var(--rose-d); }
+
+/* ---------- 담당자 여러 명 / 완료한 사람 표시 ---------- */
+.who { flex-wrap: wrap; gap: 2px 8px; }
+.who-one { display: inline-flex; align-items: center; gap: 4px; }
+/* 담당이 여러 명(또는 온 가족)이면 동그라미 테두리가 담당자 색 띠 */
+.task.ring:not(.done) .check span { border-color: transparent; background: linear-gradient(#fff, #fff) padding-box, var(--ring) border-box; }
+/* 완료되면 '체크한 사람' 색으로 채워짐 (담당자가 아니어도 한 사람 색) */
+.task.done .check span { background: var(--dc, var(--mc)); border-color: var(--dc, var(--mc)); }
+.tag.done-by { display: inline-flex; align-items: center; gap: 4px; background: color-mix(in srgb, var(--mc) 26%, #fff); color: var(--ink); }
+/* 완료 항목은 흐리게 하되 '누가 했는지'는 또렷하게 */
+.task.done .task-body { opacity: 1; }
+.task.done .task-title, .task.done .task-memo, .task.done .who, .task.done .tag:not(.done-by) { opacity: .45; }

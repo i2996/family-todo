@@ -15,26 +15,29 @@ export function openTaskForm({ task = null, date = null, tripId = null, assignee
     return;
   }
   const t = task;
-  const who = t ? t.assignee_id || '' : assignee || deviceMemberId() || state.members[0].id;
+  const me = deviceMemberId();
+  const selected = t ? t.assignee_ids || [] : assignee && assignee !== 'all' ? [assignee] : me ? [me] : [];
+  const everyone = selected.length === 0;
   const taskDate = t ? t.task_date : date || todayISO();
   const linkedTrip = t ? t.trip_id || '' : tripId || '';
   const hasAdvanced = t && (t.start_date || t.due_date || t.memo || t.repeat_type || t.trip_id);
   const type = t?.repeat_type || '';
   const days = t?.repeat_days || [];
 
+  // 담당자는 여러 명 선택 가능. 아무도 안 고르면 '온 가족'(모든 구성원에게 보임)
   const assigneeChips =
     state.members
       .map(
         (m) => `<label class="chip pick" style="--mc:${esc(m.color)}">
-          <input type="radio" name="assignee" value="${m.id}" ${who === m.id ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`
+          <input type="checkbox" name="assignee" value="${m.id}" data-change="assignee-pick" ${selected.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`
       )
       .join('') +
-    `<label class="chip pick"><input type="radio" name="assignee" value="" ${who === '' ? 'checked' : ''}><span>미정</span></label>`;
+    `<label class="chip pick"><input type="checkbox" name="all" value="1" data-change="assignee-pick" ${everyone ? 'checked' : ''}><span>👨‍👩‍👧‍👦 온 가족 (미정)</span></label>`;
 
   const body = `<form data-form="task" data-id="${t ? t.id : ''}" autocomplete="off">
     <input class="big-input" name="title" required maxlength="80" placeholder="무엇을 해야 하나요?" value="${esc(t?.title)}">
 
-    <div class="field"><span class="label">담당자</span><div class="chips">${assigneeChips}</div></div>
+    <div class="field"><span class="label">담당자 <small>여러 명 선택 가능 · 미정이면 온 가족 할 일</small></span><div class="chips">${assigneeChips}</div></div>
 
     <div class="field">
       <span class="label">날짜 <small class="repeat-hint" hidden>이 날부터 반복돼요</small></span>
@@ -116,6 +119,16 @@ function syncRepeat(f) {
 
 export const changes = {
   'repeat-type': (el) => syncRepeat(el.closest('form')),
+  'assignee-pick': (el) => {
+    const f = el.closest('form');
+    const members = [...f.querySelectorAll('input[name=assignee]')];
+    const all = f.querySelector('input[name=all]');
+    if (el === all) {
+      if (all.checked) members.forEach((i) => (i.checked = false));
+      else if (!members.some((i) => i.checked)) all.checked = true; // 아무도 없으면 '온 가족'
+    } else if (el.checked) all.checked = false;
+    else if (!members.some((i) => i.checked)) all.checked = true;
+  },
 };
 
 export const actions = {
@@ -149,7 +162,7 @@ export const forms = {
     const daysSel = type === 'weekly' ? fd.getAll('days').map(Number) : [];
     const p = {
       title,
-      assignee_id: fd.get('assignee') || null,
+      assignee_ids: fd.getAll('assignee'),
       task_date: fd.get('task_date'),
       memo: (fd.get('memo') || '').trim() || null,
       trip_id: fd.get('trip_id') || null,

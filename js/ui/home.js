@@ -4,7 +4,8 @@ import { prefs } from '../prefs.js';
 import { buildTaskList, filterByMember, sortOccurrences } from '../logic/filters.js';
 import { occurrencesInRange } from '../logic/recurrence.js';
 import { todayISO, addDays, parts, pad, startOfWeekSun, eachDay, KO_DOW, longDate, labelDate, shortRange } from '../logic/dates.js';
-import { esc, deviceMemberId, memberById, taskList, taskRow, occFor, memberChips } from './components.js';
+import { esc, deviceMemberId, memberById, taskList, taskRow, occFor, memberChips, assigneesOf, NEUTRAL } from './components.js';
+import { isAssignedTo } from '../logic/assign.js';
 import { openTaskForm } from './taskForm.js';
 import { openMemberForm } from './settings.js';
 import * as A from '../actions.js';
@@ -27,11 +28,11 @@ function calendar(today, memberFilter) {
 
   const dots = new Map(); // date -> Map(color -> hasPending)
   for (const o of filterByMember(occurrencesInRange(state.tasks, state.completions, gridStart, gridEnd), memberFilter)) {
-    const m = memberById(o.task.assignee_id);
-    const color = m ? m.color : '#c9bfc4';
+    const ms = assigneesOf(o.task);
+    const colors = ms.length ? ms.map((m) => m.color) : [NEUTRAL]; // 온 가족 할 일은 회색 점
     if (!dots.has(o.date)) dots.set(o.date, new Map());
     const mp = dots.get(o.date);
-    mp.set(color, (mp.get(color) || false) || !o.done);
+    for (const color of colors) mp.set(color, (mp.get(color) || false) || !o.done);
   }
   const tripOn = new Map();
   for (const tr of state.trips) {
@@ -116,7 +117,7 @@ export function renderHome() {
   const myPending = todayList.filter((o) => !o.done).length;
 
   const perMember = state.members
-    .map((m) => ({ m, n: famPending.filter((o) => o.task.assignee_id === m.id).length }))
+    .map((m) => ({ m, n: famPending.filter((o) => isAssignedTo(o.task, m.id)).length }))
     .filter((x) => x.n > 0);
 
   const me = dev ? memberById(dev) : null;
@@ -174,7 +175,7 @@ export function renderHome() {
       </section>
     </div>
   </div>
-  <button class="fab" data-act="add-task">+ 할 일 추가</button>`;
+  <button class="fab" data-act="add-task" aria-label="할 일 추가">+</button>`;
 }
 
 const shiftMonth = (n) => {

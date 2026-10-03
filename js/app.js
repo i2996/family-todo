@@ -5,24 +5,38 @@ import { subscribeSpace } from './data/realtime.js';
 import { prefs } from './prefs.js';
 import { state, set } from './state.js';
 import * as A from './actions.js';
-import { toast, errMsg, memberById } from './ui/components.js';
+import { toast, errMsg, deviceMemberId, assigneeLabel, occFor } from './ui/components.js';
 import { buildShareText, shareText } from './logic/share.js';
 import { mountShell, actions as layoutActions } from './ui/layout.js';
 import { renderGate, actions as gateActions, forms as gateForms } from './ui/gate.js';
-import { actions as sheetActions } from './ui/sheet.js';
+import { actions as sheetActions, confirmDialog } from './ui/sheet.js';
 import { actions as homeActions } from './ui/home.js';
 import { actions as tasksActions } from './ui/tasks.js';
 import { actions as tripActions, forms as tripForms } from './ui/trips.js';
 import { actions as foodActions, forms as foodForms, changes as foodChanges } from './ui/food.js';
 import { openTaskForm, actions as formActions, forms as taskForms, changes as formChanges } from './ui/taskForm.js';
 import { actions as settingsActions, forms as settingsForms, changes as settingsChanges } from './ui/settings.js';
-import { occFor } from './ui/components.js';
 
 /* ---------- 공통 액션 (할 일 체크/수정/공유/추가) ---------- */
 const coreActions = {
   toggle: async (el) => {
     try {
-      await A.toggleOccurrence(el.dataset.task, el.dataset.date);
+      const t = state.tasks.find((x) => x.id === el.dataset.task);
+      if (!t) return;
+      let by = null;
+      if (!occFor(t, el.dataset.date).done) {
+        // 완료로 바꿀 때는 '누가 했는지'를 기록 (이 기기 주인, 없으면 물어봄)
+        by = deviceMemberId();
+        if (!by) {
+          by = await confirmDialog({
+            title: '누가 했나요?',
+            message: '설정에서 "이 기기는 누구 거예요?"를 정해두면 다음부터 안 물어봐요.',
+            choices: [...state.members.map((m) => ({ label: m.name, value: m.id })), { label: '취소', value: null }],
+          });
+          if (!by) return;
+        }
+      }
+      await A.toggleOccurrence(el.dataset.task, el.dataset.date, by);
     } catch (e) {
       toast(errMsg(e));
     }
@@ -32,7 +46,7 @@ const coreActions = {
   'share-task': async (el) => {
     const t = state.tasks.find((x) => x.id === el.dataset.task);
     if (!t) return;
-    const text = buildShareText(occFor(t, el.dataset.date), memberById(t.assignee_id));
+    const text = buildShareText(occFor(t, el.dataset.date), assigneeLabel(t));
     if ((await shareText(text)) === 'copied') toast('내용을 복사했어요. 카톡에 붙여넣기 하세요');
   },
 };

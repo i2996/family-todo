@@ -70,15 +70,12 @@ export function repeatLabel(t) {
 
 const completionKey = (taskId, date) => `${taskId}|${date}`;
 
-export function makeOccurrence(t, date, doneSet) {
+/** doneMap: 'taskId|날짜' → 완료한 사람 id (반복 업무용) */
+export function makeOccurrence(t, date, doneMap) {
   const key = completionKey(t.id, date);
-  return {
-    key,
-    task: t,
-    date,
-    done: t.repeat_type ? doneSet.has(key) : !!t.done,
-    overdue: false,
-  };
+  const done = t.repeat_type ? doneMap.has(key) : !!t.done;
+  const doneBy = !done ? null : t.repeat_type ? doneMap.get(key) ?? null : t.done_by ?? null;
+  return { key, task: t, date, done, doneBy, overdue: false };
 }
 
 /**
@@ -86,7 +83,7 @@ export function makeOccurrence(t, date, doneSet) {
  * opts.singlesAll: 한 번만 하는 일은 기간과 상관없이 전부 포함 (전체 기간 보기용)
  */
 export function occurrencesInRange(tasks, completions, from, to, opts = {}) {
-  const doneSet = new Set(completions.map((c) => completionKey(c.task_id, c.occurrence_date)));
+  const doneSet = new Map(completions.map((c) => [completionKey(c.task_id, c.occurrence_date), c.done_by ?? null]));
   const days = eachDay(from, to);
   const out = [];
   for (const t of tasks) {
@@ -105,7 +102,7 @@ export function overdueOccurrences(tasks, today) {
   for (const t of tasks) {
     if (t.repeat_type || t.done) continue;
     const last = t.due_date && t.due_date > t.task_date ? t.due_date : t.task_date;
-    if (last < today) out.push({ key: `${t.id}|${t.task_date}`, task: t, date: t.task_date, done: false, overdue: true });
+    if (last < today) out.push({ key: `${t.id}|${t.task_date}`, task: t, date: t.task_date, done: false, doneBy: null, overdue: true });
   }
   return out;
 }

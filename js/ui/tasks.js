@@ -39,7 +39,7 @@ export function renderTasks() {
           .join('')
       : `<p class="empty big">${f.status === 'pending' ? '남은 할 일이 없어요 🎉' : '해당하는 할 일이 없어요'}</p>`
   }
-  <button class="fab" data-act="add-task">+ 할 일 추가</button>`;
+  <button class="fab" data-act="add-task" aria-label="할 일 추가">+</button>`;
 }
 
 const update = (patch) => {

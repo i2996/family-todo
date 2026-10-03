@@ -77,7 +77,10 @@ export async function importAll(sid, data, { includeFood = false } = {}) {
       ]),
       repeat_interval: t.repeat_interval || 1,
       done: !!t.done,
-      assignee_id: memberMap.get(t.assignee_id) || null,
+      assignee_ids: (Array.isArray(t.assignee_ids) ? t.assignee_ids : t.assignee_id ? [t.assignee_id] : [])
+        .map((id) => memberMap.get(id))
+        .filter(Boolean),
+      done_by: memberMap.get(t.done_by) || null,
       trip_id: tripMap.get(t.trip_id) || null,
     };
   });
@@ -87,6 +90,7 @@ export async function importAll(sid, data, { includeFood = false } = {}) {
       task_id: taskMap.get(c.task_id),
       space_id: sid,
       occurrence_date: c.occurrence_date,
+      done_by: memberMap.get(c.done_by) || null,
       completed_at: c.completed_at || new Date().toISOString(),
     }));
 

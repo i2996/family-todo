@@ -119,7 +119,7 @@ export function renderFood() {
     <button class="${sub === 'snack' ? 'on' : ''}" data-act="food-sub" data-v="snack">🍪 간식</button>
   </div>
   ${sub === 'banchan' ? banchanView(today) : snackView(today)}
-  <button class="fab" data-act="food-add">+ ${sub === 'banchan' ? '반찬' : '간식'} 등록</button>`;
+  <button class="fab" data-act="food-add" aria-label="${sub === 'banchan' ? '반찬' : '간식'} 등록">+</button>`;
 }
 
 /* ---------- 등록/수정 폼 ---------- */

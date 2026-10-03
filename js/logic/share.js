@@ -1,9 +1,9 @@
 // 카카오톡 등 공유용 텍스트 + 공유 실행
 import { labelDate, todayISO } from './dates.js';
 
-export function buildShareText(occ, member) {
+export function buildShareText(occ, assigneeLabel) {
   const t = occ.task;
-  const lines = ['[가족 할 일]', t.title, `담당: ${member ? member.name : '미정'}`, `날짜: ${labelDate(occ.date, todayISO())}`];
+  const lines = ['[가족 할 일]', t.title, `담당: ${assigneeLabel}`, `날짜: ${labelDate(occ.date, todayISO())}`];
   if (t.memo) lines.push(`메모: ${t.memo}`);
   return lines.join('\n');
 }

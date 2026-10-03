@@ -40,7 +40,7 @@ export function renderTrips() {
   <section class="page-head"><h1>외출 / 여행</h1></section>
   ${upcoming.length ? `<ul class="trip-list">${upcoming.map((t) => tripRow(t, today)).join('')}</ul>` : '<p class="empty big">다가오는 외출이나 여행이 없어요</p>'}
   ${past.length ? `<details class="past"><summary>지난 일정 ${past.length}개</summary><ul class="trip-list">${past.map((t) => tripRow(t, today)).join('')}</ul></details>` : ''}
-  <button class="fab" data-act="add-trip">+ 외출/여행 추가</button>`;
+  <button class="fab" data-act="add-trip" aria-label="외출/여행 추가">+</button>`;
 }
 
 function renderTripDetail(t) {
@@ -64,7 +64,7 @@ function renderTripDetail(t) {
     <div class="sec-head"><h2>준비할 일</h2><span class="muted">${p.done}/${p.total}</span></div>
     ${occs.length ? `<ul class="tasks">${occs.map((o) => taskRow(o, { showDate: true })).join('')}</ul>` : '<p class="empty">준비할 일을 추가해보세요</p>'}
   </section>
-  <button class="fab" data-act="add-trip-task" data-id="${t.id}">+ 준비할 일 추가</button>`;
+  <button class="fab" data-act="add-trip-task" data-id="${t.id}" aria-label="준비할 일 추가">+</button>`;
 }
 
 export function openTripForm(trip = null) {

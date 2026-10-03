@@ -73,7 +73,12 @@ export async function removeMember(id) {
   await membersDb.deleteMember(id);
   set({
     members: state.members.filter((m) => m.id !== id),
-    tasks: state.tasks.map((t) => (t.assignee_id === id ? { ...t, assignee_id: null } : t)),
+    tasks: state.tasks.map((t) => ({
+      ...t,
+      assignee_ids: (t.assignee_ids || []).filter((x) => x !== id),
+      done_by: t.done_by === id ? null : t.done_by,
+    })),
+    completions: state.completions.map((c) => (c.done_by === id ? { ...c, done_by: null } : c)),
   });
 }
 
@@ -91,8 +96,8 @@ export async function removeTask(id) {
   set({ tasks: state.tasks.filter((t) => t.id !== id), completions: state.completions.filter((c) => c.task_id !== id) });
 }
 
-/** 체크 토글 - 화면은 먼저 바꾸고(낙관적 업데이트) 실패하면 서버 상태로 되돌린다 */
-export async function toggleOccurrence(taskId, date) {
+/** 체크 토글 - 화면은 먼저 바꾸고(낙관적 업데이트) 실패하면 서버 상태로 되돌린다. doneBy: 체크한 사람 */
+export async function toggleOccurrence(taskId, date, doneBy = null) {
   const t = state.tasks.find((x) => x.id === taskId);
   if (!t) return;
   try {
@@ -101,14 +106,14 @@ export async function toggleOccurrence(taskId, date) {
       const done = !exists;
       set({
         completions: done
-          ? [...state.completions, { task_id: taskId, occurrence_date: date, space_id: sid() }]
+          ? [...state.completions, { task_id: taskId, occurrence_date: date, space_id: sid(), done_by: doneBy }]
           : state.completions.filter((c) => !(c.task_id === taskId && c.occurrence_date === date)),
       });
-      await tasksDb.setOccurrenceDone(sid(), taskId, date, done);
+      await tasksDb.setOccurrenceDone(sid(), taskId, date, done, doneBy);
     } else {
       const done = !t.done;
-      set({ tasks: state.tasks.map((x) => (x.id === taskId ? { ...x, done } : x)) });
-      await tasksDb.setSingleDone(taskId, done);
+      set({ tasks: state.tasks.map((x) => (x.id === taskId ? { ...x, done, done_by: done ? doneBy : null } : x)) });
+      await tasksDb.setSingleDone(taskId, done, doneBy);
     }
   } catch (e) {
     await loadAll();
