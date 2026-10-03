@@ -66,8 +66,7 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
   border: 2px dashed var(--line);
   border-radius: 26px;
   padding: 18px 16px 90px;
-  box-shadow: 5px 5px 0 var(--accent);
-  min-height: 60dvh;
+    min-height: 60dvh;
 }
 
 /* 좁은 화면: 하단 탭 */
@@ -106,9 +105,8 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
   position: fixed; z-index: 15; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom));
   min-height: 52px; padding: 0 22px; border-radius: 26px;
   background: var(--accent); color: var(--ink); border: 2px solid var(--accent-d); font-family: var(--font-head); font-size: 17px;
-  box-shadow: 3px 4px 0 var(--accent-d);
 }
-.fab:active { transform: translate(2px, 2px); box-shadow: 1px 2px 0 var(--accent-d); }
+.fab:active { transform: translate(2px, 2px);  }
 @media (min-width: 600px) { .fab { right: calc(var(--nav-w) + 28px); bottom: 28px; } }
 
 /* ---------- 공통 조각 ---------- */
