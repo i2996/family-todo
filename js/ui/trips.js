@@ -6,7 +6,7 @@ import { esc, tripById, taskRow, occFor, toast, errMsg } from './components.js';
 import { openTaskForm } from './taskForm.js';
 import { todayISO, diffDays, shortRange, longDate } from '../logic/dates.js';
 
-const ICONS = ['🏕️', '🚗', '✈️', '🏖️', '🏔️', '🎡', '🍽️', '🏥', '🎒', '🏠'];
+const ICONS = ['🏕️', '🚗', '✈️', '🏖️', '🏔️', '🎡', '🍽️', '🏥', '🎒', '🏠', '🥳', '🤙🏻'];
 
 const progress = (tripId) => {
   const list = state.tasks.filter((t) => t.trip_id === tripId).map((t) => occFor(t));
@@ -37,10 +37,10 @@ export function renderTrips() {
   const upcoming = state.trips.filter((t) => (t.end_date || t.start_date) >= today);
   const past = state.trips.filter((t) => (t.end_date || t.start_date) < today).reverse();
   return `
-  <section class="page-head"><h1>외출 / 여행</h1></section>
+  <section class="page-head"><h1>일정</h1></section>
   ${upcoming.length ? `<ul class="trip-list">${upcoming.map((t) => tripRow(t, today)).join('')}</ul>` : '<p class="empty big">다가오는 외출이나 여행이 없어요</p>'}
   ${past.length ? `<details class="past"><summary>지난 일정 ${past.length}개</summary><ul class="trip-list">${past.map((t) => tripRow(t, today)).join('')}</ul></details>` : ''}
-  <button class="fab" data-act="add-trip" aria-label="외출/여행 추가">+</button>`;
+  <button class="fab" data-act="add-trip" aria-label="일정 추가">+</button>`;
 }
 
 function renderTripDetail(t) {
@@ -85,7 +85,7 @@ export function openTripForm(trip = null) {
       <button type="submit" class="btn primary">${t ? '저장' : '추가'}</button>
     </div></form>`;
   openSheet({
-    title: t ? '외출/여행 수정' : '외출/여행 추가',
+    title: t ? '일정 수정' : '일정 추가',
     body,
     onMount: (el) => !t && setTimeout(() => el.querySelector('[name=title]').focus(), 60),
   });
@@ -105,7 +105,7 @@ export const actions = {
     const id = el.dataset.id;
     const n = state.tasks.filter((t) => t.trip_id === id).length;
     const choice = await confirmDialog({
-      title: '이 외출/여행을 삭제할까요?',
+      title: '이 일정을 삭제할까요?',
       message: n ? `연결된 준비 할 일이 ${n}개 있어요.` : '',
       choices: [
         { label: '취소', value: null },
