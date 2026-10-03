@@ -15,7 +15,7 @@ export function openMenu() {
   openSheet({
     title: '설정',
     body: `<div class="menu">
-      ${item('menu-members', '👨‍👩‍👧‍👦', '가족 구성원', '이름과 색상 관리')}
+      ${item('menu-members', '👨🏻‍👩🏻‍👧🏻‍👦🏻', '가족 구성원', '이름과 색상 관리')}
       ${item('menu-device', '📱', '이 기기는 누구 거예요?', '열자마자 내 할 일이 보여요')}
       ${item('menu-notify', '🔔', '알림', '새 할 일이 배정되면 알려줘요')}
       ${item('menu-space', '🔑', '가족 공간', '가족 코드 · 초대 링크 · 비밀번호')}
