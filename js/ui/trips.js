@@ -1,4 +1,4 @@
-// 외출/여행: 목록 + 상세(준비 할 일 연결) + 등록 폼
+// 일정: 목록 + 상세(준비 할 일 연결) + 등록 폼
 import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
@@ -38,7 +38,7 @@ export function renderTrips() {
   const past = state.trips.filter((t) => (t.end_date || t.start_date) < today).reverse();
   return `
   <section class="page-head"><h1>일정</h1></section>
-  ${upcoming.length ? `<ul class="trip-list">${upcoming.map((t) => tripRow(t, today)).join('')}</ul>` : '<p class="empty big">다가오는 외출이나 여행이 없어요</p>'}
+  ${upcoming.length ? `<ul class="trip-list">${upcoming.map((t) => tripRow(t, today)).join('')}</ul>` : '<p class="empty big">다가오는 일정이 없어요</p>'}
   ${past.length ? `<details class="past"><summary>지난 일정 ${past.length}개</summary><ul class="trip-list">${past.map((t) => tripRow(t, today)).join('')}</ul></details>` : ''}
   <button class="fab" data-act="add-trip" aria-label="일정 추가">+</button>`;
 }

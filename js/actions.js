@@ -6,6 +6,7 @@ import * as membersDb from './data/members.js';
 import * as tasksDb from './data/tasks.js';
 import * as tripsDb from './data/trips.js';
 import * as foodDb from './data/food.js';
+import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
 
@@ -203,6 +204,16 @@ export async function regeneratePlan(from, to, byKey) {
     ],
   });
 }
+
+/* ---------- 알림 (웹 푸시) ---------- */
+export const pushSupported = pushDb.pushSupported;
+export const pushConfigured = pushDb.pushConfigured;
+export const pushPermission = pushDb.pushPermission;
+export const pushSubscribed = async () => !!(await pushDb.currentSubscription());
+export const enablePush = (memberId) => pushDb.enablePush(sid(), memberId);
+export const disablePush = () => pushDb.disablePush();
+export const syncPush = (memberId) => pushDb.syncPush(sid(), memberId);
+export const testPush = () => pushDb.showLocalTest();
 
 /* ---------- 백업 / 복원 ---------- */
 export const exportBackup = () => backupDb.exportAll(state.space);

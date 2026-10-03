@@ -173,6 +173,7 @@ export const forms = {
       start_date: type ? null : fd.get('start_date') || null,
       due_date: type ? null : fd.get('due_date') || null,
     };
+    if (!f.dataset.id && A.pushConfigured()) p.created_by = deviceMemberId(); // 알림 기능을 설정했을 때만 사용 (본인에겐 알림 안 보내려고)
     if (!p.task_date) return toast('날짜를 선택해주세요');
     if (p.start_date && p.due_date && p.due_date < p.start_date) return toast('마감일이 시작일보다 빠를 수 없어요');
     if (p.repeat_end && p.repeat_end < p.task_date) return toast('종료일이 시작 날짜보다 빠를 수 없어요');

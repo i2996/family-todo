@@ -34,6 +34,8 @@ js/ui/          ← 화면
   layout.js(탭/껍데기) home.js tasks.js trips.js food.js(먹거리 화면) taskForm.js settings.js gate.js sheet.js components.js
 supabase/schema.sql                           테이블 + 보안(RLS) + 실시간 설정
 supabase/food.sql                             먹거리(반찬·간식) 테이블 추가분
+supabase/multi-assign.sql                     담당자 여러 명 + 완료한 사람 기록
+supabase/push.sql, functions/notify-task/     새 할 일 알림(웹 푸시) — 설정은 supabase/PUSH-SETUP.md
 ```
 
 ## DB 구조
@@ -72,3 +74,9 @@ supabase/food.sql                             먹거리(반찬·간식) 테이�
 - **간식**: 보관 장소(실온/냉장/냉동)별 재고 + 남은 개수 + 유통기한. `먹음`을 누르면 1개씩 줄고 0이 되면 목록에서 사라져요.
 - 식단은 자동 생성을 앱을 열 때마다 하지 않고 버튼을 눌렀을 때만 만들어요. (여러 가족이 동시에 열어도 식단이 뒤섞이지 않게)
 - 알림 기능(.ics)은 넣지 않았어요.
+
+## 새 할 일 알림
+
+- 나에게 배정된 할 일(온 가족 할 일 포함)이 새로 생기거나, 내가 담당자로 새로 추가되면 폰에 알림이 와요.
+- 설정은 한 번만: `supabase/PUSH-SETUP.md` 를 따라 하세요. (알림을 안 쓰면 설정 없이 그대로 사용해도 돼요.)
+- 앱에서는 `설정 ⋮ → 알림` 에서 기기별로 켜고 끌 수 있어요.

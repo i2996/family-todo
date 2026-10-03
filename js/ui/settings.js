@@ -3,7 +3,7 @@ import { state, set } from '../state.js';
 import { prefs } from '../prefs.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
-import { esc, toast, errMsg, PALETTE, memberById } from './components.js';
+import { esc, toast, errMsg, PALETTE, memberById, deviceMemberId } from './components.js';
 import { todayISO } from '../logic/dates.js';
 import { shareText } from '../logic/share.js';
 
@@ -17,6 +17,7 @@ export function openMenu() {
     body: `<div class="menu">
       ${item('menu-members', '👨‍👩‍👧‍👦', '가족 구성원', '이름과 색상 관리')}
       ${item('menu-device', '📱', '이 기기는 누구 거예요?', '열자마자 내 할 일이 보여요')}
+      ${item('menu-notify', '🔔', '알림', '새 할 일이 배정되면 알려줘요')}
       ${item('menu-space', '🔑', '가족 공간', '가족 코드 · 초대 링크 · 비밀번호')}
       ${item('menu-backup', '💾', '데이터 백업', 'JSON 파일로 내려받기')}
       ${item('menu-restore', '♻️', '데이터 복원', '백업 파일로 되돌리기')}
@@ -79,6 +80,52 @@ function openDevice() {
   });
 }
 
+/* ---------- 알림 ---------- */
+function openNotify() {
+  openSheet({
+    title: '알림',
+    back: openMenu,
+    body: '<div id="notify-body"><p class="note">확인하는 중…</p></div>',
+    onMount: () => renderNotify(),
+  });
+}
+
+async function renderNotify() {
+  const box = document.getElementById('notify-body');
+  if (!box) return;
+  const me = deviceMemberId();
+  const meM = memberById(me);
+  let html = '';
+  if (!A.pushSupported()) {
+    html = `<p class="note">이 브라우저는 알림을 지원하지 않아요.<br>갤럭시는 크롬·삼성 인터넷에서, 아이폰은 사파리에서 <b>홈 화면에 추가</b>한 앱에서만 알림을 받을 수 있어요(iOS 16.4 이상).</p>`;
+  } else if (!A.pushConfigured()) {
+    html = `<p class="note">알림 서버 설정이 아직 안 되어 있어요. (설정 방법: <code>supabase/PUSH-SETUP.md</code>)</p>`;
+  } else if (!me) {
+    html = `<p class="note">알림을 받으려면 먼저 이 기기가 누구 건지 골라주세요.</p>
+      <div class="chips">${state.members
+        .map((m) => `<button class="chip" style="--mc:${esc(m.color)}" data-act="notify-pick-member" data-v="${m.id}"><i class="dot"></i>${esc(m.name)}</button>`)
+        .join('')}</div>`;
+  } else {
+    const subscribed = await A.pushSubscribed();
+    const perm = A.pushPermission();
+    if (!document.getElementById('notify-body')) return; // 그 사이 시트를 닫은 경우
+    const status =
+      perm === 'denied'
+        ? `<p class="food-warn">알림이 차단돼 있어요. 브라우저 주소창 옆 자물쇠(사이트 설정)에서 알림을 <b>허용</b>으로 바꾼 뒤 다시 와주세요.</p>`
+        : subscribed && perm === 'granted'
+          ? `<p class="note">🔔 <b>켜짐</b> — <b>${esc(meM.name)}</b> 님 기기로 알림이 가요.</p>
+             <button class="btn wide" data-act="notify-test">이 기기에서 테스트 알림</button>
+             <button class="btn danger wide" data-act="notify-off">알림 끄기</button>`
+          : `<p class="note">🔕 꺼져 있어요. 켜면 <b>${esc(meM.name)}</b> 님에게 새 할 일이 배정될 때 알려줘요.</p>
+             <button class="btn primary wide" data-act="notify-on">알림 켜기</button>`;
+    html = `${status}
+      <p class="note" style="margin-top:16px">· 나에게 배정된 할 일(온 가족 할 일 포함)이 새로 생기면 알려줘요.<br>
+      · 내가 만든 할 일은 알림이 안 와요.<br>
+      · 할 일을 만드는 기기도 "이 기기는 누구 거예요?"가 정해져 있어야 상대에게 알림이 가요.</p>`;
+  }
+  box.innerHTML = html;
+}
+
 /* ---------- 가족 공간 ---------- */
 function openSpace() {
   const s = state.space;
@@ -112,6 +159,39 @@ export const actions = {
   'menu-members': openMembers,
   'menu-device': openDevice,
   'menu-space': openSpace,
+  'menu-notify': openNotify,
+  'notify-pick-member': (el) => {
+    prefs.setDeviceMember(el.dataset.v);
+    set();
+    renderNotify();
+  },
+  'notify-on': async (el) => {
+    el.disabled = true;
+    try {
+      await A.enablePush(deviceMemberId());
+      toast('알림을 켰어요');
+    } catch (e) {
+      toast(errMsg(e));
+    }
+    renderNotify();
+  },
+  'notify-off': async (el) => {
+    el.disabled = true;
+    try {
+      await A.disablePush();
+      toast('알림을 껐어요');
+    } catch (e) {
+      toast(errMsg(e));
+    }
+    renderNotify();
+  },
+  'notify-test': async () => {
+    try {
+      await A.testPush();
+    } catch (e) {
+      toast(errMsg(e));
+    }
+  },
   'member-add': () => openMemberForm(),
   'member-edit': (el) => openMemberForm(memberById(el.dataset.id)),
   'pick-color': (el) => {
@@ -139,6 +219,7 @@ export const actions = {
   'device-pick': (el) => {
     prefs.setDeviceMember(el.dataset.v || null);
     prefs.setFilter({ ...prefs.getFilter(), member: null }); // 필터 기본값도 새 주인 기준으로
+    if (el.dataset.v) A.syncPush(el.dataset.v).catch(() => {}); // 알림 받는 사람도 같이 바뀜
     set();
     closeSheet();
     toast('이 기기 설정을 바꿨어요');
