@@ -21,6 +21,35 @@
   <div id="sheet-root"></div>
   <div id="dialog-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
+  <script>
+    // 앱이 8초 안에 시작되지 않으면, 어떤 파일이 없는지 알려주는 점검 화면을 보여준다.
+    (function () {
+      var REQUIRED = ['js/app.js','js/config.js','js/prefs.js','js/state.js','js/actions.js',
+        'js/data/client.js','js/data/spaces.js','js/data/members.js','js/data/tasks.js','js/data/trips.js','js/data/food.js','js/data/realtime.js','js/data/backup.js',
+        'js/logic/dates.js','js/logic/recurrence.js','js/logic/filters.js','js/logic/share.js','js/logic/food.js',
+        'js/ui/components.js','js/ui/sheet.js','js/ui/layout.js','js/ui/home.js','js/ui/tasks.js','js/ui/trips.js','js/ui/taskForm.js','js/ui/settings.js','js/ui/gate.js','js/ui/food.js'];
+      var errors = [];
+      window.addEventListener('error', function (e) { errors.push(e.message || (e.target && e.target.src) || '알 수 없는 오류'); }, true);
+      window.addEventListener('unhandledrejection', function (e) { errors.push(String((e.reason && e.reason.message) || e.reason)); });
+      setTimeout(function () {
+        if (window.__appReady) return;
+        var missing = [];
+        Promise.all(REQUIRED.map(function (p) {
+          return fetch(p, { cache: 'no-store' }).then(function (r) { if (!r.ok) missing.push(p); }).catch(function () { missing.push(p); });
+        })).then(function () {
+          var html = '<main class="gate"><div class="gate-logo">🔧</div><h1>앱이 시작되지 않았어요</h1>';
+          if (missing.length) {
+            html += '<p class="gate-sub">아래 파일을 찾을 수 없어요. 폴더 구조 그대로 올라갔는지 확인해주세요.</p><ul style="text-align:left;font-size:14px;line-height:1.7">' +
+              missing.map(function (m) { return '<li><code>' + m + '</code></li>'; }).join('') + '</ul>';
+          } else {
+            html += '<p class="gate-sub">파일은 모두 있어요. 이전 버전이 저장돼 있을 수 있으니 브라우저의 사이트 데이터를 지우고 다시 열어보세요.</p>';
+          }
+          if (errors.length) html += '<p class="gate-sub" style="font-size:12px;word-break:break-all">' + errors.slice(0, 3).join('<br>') + '</p>';
+          document.getElementById('root').innerHTML = html + '</main>';
+        });
+      }, 8000);
+    })();
+  </script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
