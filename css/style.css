@@ -1,3 +1,12 @@
+/* 폰트 */
+@font-face {
+    font-family: 'NostalgicGukhanbakLovely';
+    src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2607161334@x-10/x/GriunXHangeulSarangseureoun-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+
+
 /* 우리 가족 — 다이어리 / 미니홈피 느낌의 가족 공간 */
 :root {
   --bg: #f8f4ea;
@@ -16,7 +25,7 @@
   --accent: var(--sky); --accent-d: var(--sky-d); --accent-soft: var(--sky-soft);
   --danger: #d6535a;
   --nav-w: 92px;
-  --font-body: 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --font-body: 'NostalgicGukhanbakLovely', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   --font-head: 'Jua', 'Gowun Dodum', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 body[data-tab='tasks'] { --accent: var(--mint);  --accent-d: var(--mint-d);  --accent-soft: var(--mint-soft); }
