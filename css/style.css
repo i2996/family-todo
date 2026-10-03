@@ -170,7 +170,7 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
 .home-col > section + section { margin-top: 26px; }
 .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 6px; margin-bottom: 4px; border-bottom: 2px dotted var(--line); }
 .sec-head h2 { font-size: 20px; }
-.sec-head h2::before { content: '✿ '; color: var(--accent-d); }
+.sec-head h2::before { content: '▪️ '; color: var(--accent-d); }
 
 /* ---------- 할 일 목록 ---------- */
 .tasks .task { display: flex; align-items: flex-start; gap: 2px; padding: 6px 0; border-bottom: 1.5px dotted var(--line); }
