@@ -15,8 +15,8 @@ export function openTaskForm({ task = null, date = null, tripId = null, assignee
     return;
   }
   const t = task;
-  const me = deviceMemberId();
-  const selected = t ? t.assignee_ids || [] : assignee && assignee !== 'all' ? [assignee] : me ? [me] : [];
+  // 새 할 일은 담당자를 아무도 고르지 않은 상태로 시작 (그대로 저장하면 '온 가족' 할 일)
+  const selected = t ? t.assignee_ids || [] : [];
   const everyone = selected.length === 0;
   const taskDate = t ? t.task_date : date || todayISO();
   const linkedTrip = t ? t.trip_id || '' : tripId || '';
