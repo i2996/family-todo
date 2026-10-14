@@ -4,6 +4,7 @@ import * as membersDb from './members.js';
 import * as tasksDb from './tasks.js';
 import * as tripsDb from './trips.js';
 import * as foodDb from './food.js';
+import * as eventsDb from './events.js';
 
 export async function exportAll(space) {
   const sid = space.id;
@@ -20,6 +21,12 @@ export async function exportAll(space) {
   } catch {
     /* food.sql 을 아직 안 돌린 경우: 먹거리는 빼고 백업 */
   }
+  let ev = {};
+  try {
+    ev = { events: await eventsDb.listEvents(sid) };
+  } catch {
+    /* events.sql 을 아직 안 돌린 경우: 일정은 빼고 백업 */
+  }
   return {
     app: 'family-todo',
     version: 1,
@@ -30,6 +37,7 @@ export async function exportAll(space) {
     tasks,
     task_completions: completions,
     ...food,
+    ...ev,
   };
 }
 
@@ -48,7 +56,7 @@ export function downloadJson(obj, filename) {
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k] ?? null]));
 
 /** 현재 공간의 데이터를 모두 지우고 백업 내용으로 교체 (id 는 새로 발급해서 충돌 방지) */
-export async function importAll(sid, data, { includeFood = false } = {}) {
+export async function importAll(sid, data, { includeFood = false, includeEvents = false } = {}) {
   if (!data || data.app !== 'family-todo' || !Array.isArray(data.members) || !Array.isArray(data.tasks)) {
     throw new Error('가족 할 일 백업 파일이 아니에요.');
   }
@@ -64,7 +72,12 @@ export async function importAll(sid, data, { includeFood = false } = {}) {
   const trips = (data.trips || []).map((t) => {
     const id = crypto.randomUUID();
     tripMap.set(t.id, id);
-    return { id, space_id: sid, ...pick(t, ['title', 'icon', 'start_date', 'end_date', 'place', 'memo']) };
+    return {
+      id,
+      space_id: sid,
+      ...pick(t, ['title', 'icon', 'start_date', 'end_date', 'place', 'memo']),
+      ...(includeEvents ? { created_by: memberMap.get(t.created_by) || null } : {}),
+    };
   });
   const tasks = data.tasks.map((t) => {
     const id = crypto.randomUUID();
@@ -127,5 +140,22 @@ export async function importAll(sid, data, { includeFood = false } = {}) {
     unwrap(await supabase.from('food_items').delete().eq('space_id', sid));
     if (foodItems.length) unwrap(await supabase.from('food_items').insert(foodItems));
     if (foodPlan.length) unwrap(await supabase.from('food_plan').insert(foodPlan));
+  }
+
+  // 일정: 백업에 일정이 들어 있을 때만 교체
+  if (includeEvents && Array.isArray(data.events)) {
+    const rows = data.events.map((ev) => ({
+      id: crypto.randomUUID(),
+      space_id: sid,
+      title: ev.title,
+      start_date: ev.start_date,
+      end_date: ev.end_date ?? null,
+      start_time: ev.start_time ?? null,
+      place: ev.place ?? null,
+      memo: ev.memo ?? null,
+      created_by: memberMap.get(ev.created_by) || null,
+    }));
+    unwrap(await supabase.from('events').delete().eq('space_id', sid));
+    if (rows.length) unwrap(await supabase.from('events').insert(rows));
   }
 }

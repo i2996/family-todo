@@ -4,6 +4,7 @@ import { supabase } from './client.js';
 
 const CORE_TABLES = ['members', 'tasks', 'trips', 'task_completions'];
 const FOOD_TABLES = ['food_items', 'food_plan'];
+const EVENT_TABLES = ['events'];
 
 function open(name, sid, tables, onChange) {
   const channel = supabase.channel(name);
@@ -20,6 +21,7 @@ export function subscribeSpace(sid, onChange) {
   const channels = [
     open(`space:${sid}`, sid, CORE_TABLES, onChange),
     open(`food:${sid}`, sid, FOOD_TABLES, onChange),
+    open(`events:${sid}`, sid, EVENT_TABLES, onChange),
   ];
   return () => channels.forEach((c) => supabase.removeChannel(c));
 }
