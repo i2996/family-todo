@@ -10,7 +10,7 @@ export const state = {
   foodReady: true, // food.sql 이 적용돼 있는지
   events: [],
   eventsReady: true, // events.sql 이 적용돼 있는지
-  tab: 'home', // 'home' | 'tasks' | 'schedule' | 'trips' | 'food'
+  tab: 'home', // 'home' | 'tasks' | 'schedule' | 'food'
   tripId: null, // 외출/여행 상세 화면
 };
 
