@@ -14,6 +14,7 @@ import { actions as homeActions } from './ui/home.js';
 import { actions as tasksActions } from './ui/tasks.js';
 import { actions as tripActions, forms as tripForms } from './ui/trips.js';
 import { actions as foodActions, forms as foodForms, changes as foodChanges } from './ui/food.js';
+import { actions as scheduleActions, forms as scheduleForms } from './ui/schedule.js';
 import { openTaskForm, actions as formActions, forms as taskForms, changes as formChanges } from './ui/taskForm.js';
 import { actions as settingsActions, forms as settingsForms, changes as settingsChanges } from './ui/settings.js';
 
@@ -53,9 +54,9 @@ const coreActions = {
 
 const actions = {
   ...layoutActions, ...gateActions, ...sheetActions, ...homeActions, ...tasksActions,
-  ...tripActions, ...foodActions, ...formActions, ...settingsActions, ...coreActions,
+  ...tripActions, ...foodActions, ...scheduleActions, ...formActions, ...settingsActions, ...coreActions,
 };
-const forms = { ...gateForms, ...tripForms, ...foodForms, ...taskForms, ...settingsForms };
+const forms = { ...gateForms, ...tripForms, ...foodForms, ...scheduleForms, ...taskForms, ...settingsForms };
 const changes = { ...formChanges, ...settingsChanges, ...foodChanges };
 
 document.addEventListener('click', (e) => {

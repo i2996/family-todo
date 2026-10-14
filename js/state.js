@@ -8,7 +8,9 @@ export const state = {
   foodItems: [],
   foodPlan: [],
   foodReady: true, // food.sql 이 적용돼 있는지
-  tab: 'home', // 'home' | 'tasks' | 'trips' | 'food'
+  events: [],
+  eventsReady: true, // events.sql 이 적용돼 있는지
+  tab: 'home', // 'home' | 'tasks' | 'schedule' | 'trips' | 'food'
   tripId: null, // 외출/여행 상세 화면
 };
 

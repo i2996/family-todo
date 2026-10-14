@@ -6,6 +6,7 @@ import * as membersDb from './data/members.js';
 import * as tasksDb from './data/tasks.js';
 import * as tripsDb from './data/trips.js';
 import * as foodDb from './data/food.js';
+import * as eventsDb from './data/events.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
@@ -14,14 +15,25 @@ const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
     tasksDb.listCompletions(sid()),
     loadFood(),
+    loadEvents(),
   ]);
-  set({ members, trips, tasks, completions, ...food });
+  set({ members, trips, tasks, completions, ...food, ...ev });
+}
+
+/** 일정 테이블(events.sql)이 아직 없어도 나머지 앱은 정상 동작하도록 따로 불러온다 */
+async function loadEvents() {
+  try {
+    return { events: await eventsDb.listEvents(sid()), eventsReady: true };
+  } catch (e) {
+    console.warn('일정 데이터를 불러오지 못했어요 (supabase/events.sql 실행 필요)', e);
+    return { events: [], eventsReady: false };
+  }
 }
 
 /** 먹거리 테이블(food.sql)이 아직 없어도 나머지 앱은 정상 동작하도록 따로 불러온다 */
@@ -44,6 +56,7 @@ export async function refresh(table) {
     case 'task_completions': return set({ completions: await tasksDb.listCompletions(sid()) });
     case 'food_items':
     case 'food_plan': return set(await loadFood());
+    case 'events': return set(await loadEvents());
     default: return loadAll();
   }
 }
@@ -80,6 +93,7 @@ export async function removeMember(id) {
       done_by: t.done_by === id ? null : t.done_by,
     })),
     completions: state.completions.map((c) => (c.done_by === id ? { ...c, done_by: null } : c)),
+    events: state.events.map((e) => (e.created_by === id ? { ...e, created_by: null } : e)),
   });
 }
 
@@ -142,6 +156,20 @@ export async function removeTrip(id, { deleteTasks }) {
       : state.tasks.map((t) => (t.trip_id === id ? { ...t, trip_id: null } : t)),
     tripId: state.tripId === id ? null : state.tripId,
   });
+}
+
+/* ---------- 일정 ---------- */
+export async function addEvent(p) {
+  const row = await eventsDb.insertEvent(sid(), p);
+  set({ events: [...state.events, row] });
+}
+export async function saveEvent(id, p) {
+  const row = await eventsDb.updateEvent(id, p);
+  set({ events: state.events.map((e) => (e.id === id ? row : e)) });
+}
+export async function removeEvent(id) {
+  await eventsDb.deleteEvent(id);
+  set({ events: state.events.filter((e) => e.id !== id) });
 }
 
 /* ---------- 먹거리 (반찬 · 간식) ---------- */
@@ -219,6 +247,6 @@ export const testPush = () => pushDb.showLocalTest();
 export const exportBackup = () => backupDb.exportAll(state.space);
 export const downloadBackup = backupDb.downloadJson;
 export async function restoreBackup(data) {
-  await backupDb.importAll(sid(), data, { includeFood: state.foodReady });
+  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady });
   await loadAll();
 }
