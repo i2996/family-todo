@@ -1,0 +1,17 @@
+/* 일정 탭 전용 스타일 (style.css 는 건드리지 않고 이 파일만 추가) */
+body[data-tab='schedule'] { --accent: var(--butter); --accent-d: var(--butter-d); --accent-soft: var(--butter-soft); }
+.nav-item[data-tab='schedule'].on { background: var(--butter); }
+
+input[type=time] { width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 14px; border: 2px solid var(--line); background: #fff; }
+
+.sch-list > li + li { border-top: 1.5px dotted var(--line); }
+.sch-main { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left; padding: 10px 2px; min-height: 52px; }
+.sch-when { flex: none; min-width: 52px; font-family: var(--font-head); font-size: 14px; color: var(--butter-d); padding-top: 2px; }
+.sch-ico { flex: none; font-size: 22px; line-height: 1.3; }
+.sch-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sch-body b { font-weight: 400; font-size: 17px; line-height: 1.35; word-break: break-word; }
+.sch-body small { color: var(--muted); }
+.sch-memo { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sch-by { display: inline-flex; align-items: center; gap: 5px; color: var(--ink) !important; margin-top: 2px; }
+.sch-main .go { margin-left: auto; color: var(--muted); font-size: 22px; align-self: center; }
+.day-detail-note { margin: 8px 0 0; }
