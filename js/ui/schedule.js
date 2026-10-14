@@ -51,11 +51,19 @@ export function renderSchedule() {
   const cells = eachDay(gridStart, gridEnd)
     .map((d) => {
       const [, m, dd] = parts(d);
-      const colors = [...new Set((map.get(d) || []).map(itemColor))].slice(0, 3);
+      const dayItems = map.get(d) || [];
+      let mark = '';
+      if (dayItems.length === 1) {
+        // 일정이 1개면 작은 글씨로 제목 표시 (작성자 색 배경)
+        const i = dayItems[0];
+        mark = `<span class="cal-text" style="--mc:${esc(itemColor(i))}">${i.kind === 'trip' ? esc(i.icon) : ''}${esc(i.title)}</span>`;
+      } else if (dayItems.length > 1) {
+        // 2개 이상이면 일정마다 작성자 색 점 (최대 4개)
+        mark = `<span class="dots">${dayItems.slice(0, 4).map((i) => `<i class="dot" style="--mc:${esc(itemColor(i))}"></i>`).join('')}</span>`;
+      }
       return `<button class="day${m !== view.m ? ' other' : ''}${d === today ? ' today' : ''}${d === view.selected ? ' sel' : ''}"
         data-act="pick-date" data-date="${d}" aria-label="${longDate(d)}">
-        <span class="n">${dd}</span>
-        <span class="dots">${colors.map((c) => `<i class="dot" style="--mc:${esc(c)}"></i>`).join('')}</span>
+        <span class="n">${dd}</span>${mark}
       </button>`;
     })
     .join('');
@@ -69,7 +77,7 @@ export function renderSchedule() {
     <button class="icon-btn" data-act="cal-next" aria-label="다음 달">›</button>
     <button class="chip sm" data-act="cal-today">오늘</button>
   </div>
-  <div class="cal-grid">
+  <div class="cal-grid big">
     ${KO_DOW.map((d, i) => `<span class="dow${i === 0 ? ' sun' : ''}">${d}</span>`).join('')}${cells}
   </div>
 
@@ -83,13 +91,23 @@ export function openEventForm({ event = null, date = null } = {}) {
   const e = event;
   const by = e ? e.created_by || '' : deviceMemberId() || '';
   const body = `<form data-form="event" data-id="${e ? e.id : ''}" autocomplete="off">
+    ${
+      e
+        ? ''
+        : `<div class="field" style="margin-top:0"><span class="label">종류</span>
+        <div class="chips">
+          <label class="chip pick"><input type="radio" name="kind" value="event" data-change="event-kind" checked><span>📌 일정</span></label>
+          <label class="chip pick"><input type="radio" name="kind" value="trip" data-change="event-kind"><span>🏕️ 외출·여행</span></label>
+        </div>
+        <small class="kind-hint" hidden>외출/여행은 만든 뒤에 열리는 화면에서 준비할 일을 연결할 수 있어요.</small></div>`
+    }
     <input class="big-input" name="title" required maxlength="80" placeholder="무슨 일정인가요? (예: 학부모 상담)" value="${esc(e?.title)}">
     <div class="grid2">
       <div class="field"><span class="label">날짜</span><input type="date" name="start_date" required value="${e?.start_date || date || todayISO()}"></div>
       <div class="field"><span class="label">끝나는 날 (여러 날이면)</span><input type="date" name="end_date" value="${e?.end_date || ''}"></div>
     </div>
     <div class="grid2">
-      <div class="field"><span class="label">시간 (선택)</span><input type="time" name="start_time" value="${e?.start_time ? String(e.start_time).slice(0, 5) : ''}"></div>
+      <div class="field time-field"><span class="label">시간 (선택)</span><input type="time" name="start_time" value="${e?.start_time ? String(e.start_time).slice(0, 5) : ''}"></div>
       <div class="field"><span class="label">장소 (선택)</span><input name="place" maxlength="60" value="${esc(e?.place)}"></div>
     </div>
     <div class="field"><span class="label">메모 (선택)</span><textarea name="memo" rows="2" maxlength="300">${esc(e?.memo)}</textarea></div>
@@ -161,6 +179,15 @@ export const actions = {
   },
 };
 
+export const changes = {
+  'event-kind': (el) => {
+    const f = el.closest('form');
+    const trip = f.elements.kind.value === 'trip';
+    f.querySelector('.time-field').hidden = trip; // 외출/여행에는 시간 입력 없음
+    f.querySelector('.kind-hint').hidden = !trip;
+  },
+};
+
 export const forms = {
   event: async (f) => {
     const fd = new FormData(f);
@@ -178,6 +205,15 @@ export const forms = {
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
     try {
+      if (!f.dataset.id && fd.get('kind') === 'trip') {
+        // 외출/여행: 같은 달력에 표시되고, 준비할 일을 연결하는 상세 화면이 열림
+        const row = await A.addTrip({ title: p.title, icon: '🏕️', start_date: p.start_date, end_date: p.end_date, place: p.place, memo: p.memo, created_by: p.created_by });
+        view.selected = p.start_date;
+        set({ tripId: row.id });
+        closeSheet();
+        toast('외출/여행을 만들었어요. 준비할 일을 추가해보세요');
+        return;
+      }
       if (f.dataset.id) await A.saveEvent(f.dataset.id, p);
       else await A.addEvent(p);
       view.selected = p.start_date; // 방금 만든 일정이 바로 보이게

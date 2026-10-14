@@ -3,7 +3,8 @@ import { state, set, subscribe } from '../state.js';
 import { esc } from './components.js';
 import { renderHome } from './home.js';
 import { renderTasks } from './tasks.js';
-import { renderTrips } from './trips.js';
+import { renderTripDetail } from './trips.js';
+import { tripById } from './components.js';
 import { renderSchedule } from './schedule.js';
 import { renderFood } from './food.js';
 
@@ -11,7 +12,6 @@ const TABS = [
   { id: 'home', ico: '🏠', label: '홈' },
   { id: 'tasks', ico: '✅', label: '할 일' },
   { id: 'schedule', ico: '📅', label: '일정' },
-  { id: 'trips', ico: '🧳', label: '외출/여행' },
   { id: 'food', ico: '🍱', label: '먹거리' },
 ];
 
@@ -36,7 +36,9 @@ export function render() {
   if (!view || !state.space) return;
   document.body.dataset.tab = state.tab; // CSS 가 탭마다 포인트 색을 바꿈
   document.getElementById('brand').textContent = `✿ ${state.space.name}`;
-  const screens = { home: renderHome, tasks: renderTasks, schedule: renderSchedule, trips: renderTrips, food: renderFood };
+  const screens = { home: renderHome, tasks: renderTasks,
+    // 외출/여행은 일정 탭에 흡수: 여행을 누르면 일정 탭 안에서 상세(준비할 일)가 열림
+    schedule: () => (state.tripId && tripById(state.tripId) ? renderTripDetail(tripById(state.tripId)) : renderSchedule()), food: renderFood };
   view.innerHTML = (screens[state.tab] || renderHome)();
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('on', b.dataset.tab === state.tab));
 }

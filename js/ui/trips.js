@@ -2,7 +2,7 @@
 import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
-import { esc, tripById, taskRow, occFor, toast, errMsg, deviceMemberId } from './components.js';
+import { esc, tripById, taskRow, occFor, toast, errMsg, deviceMemberId, memberById } from './components.js';
 import { openTaskForm } from './taskForm.js';
 import { todayISO, diffDays, shortRange, longDate } from '../logic/dates.js';
 
@@ -43,7 +43,7 @@ export function renderTrips() {
   <button class="fab" data-act="add-trip" aria-label="외출/여행 추가">+</button>`;
 }
 
-function renderTripDetail(t) {
+export function renderTripDetail(t) {
   const today = todayISO();
   const occs = state.tasks
     .filter((x) => x.trip_id === t.id)
@@ -51,13 +51,14 @@ function renderTripDetail(t) {
     .sort((a, b) => (a.done === b.done ? a.date.localeCompare(b.date) : a.done ? 1 : -1));
   const p = progress(t.id);
   return `
-  <button class="back-link" data-act="trip-back">‹ 목록으로</button>
+  <button class="back-link" data-act="trip-back">‹ 일정으로</button>
   <section class="trip-hero">
     <div class="trip-ico lg">${esc(t.icon)}</div>
     <h1>${esc(t.title)}</h1>
     <p class="trip-dates">${longDate(t.start_date)}${t.end_date && t.end_date !== t.start_date ? ` ~ ${longDate(t.end_date)}` : ''}</p>
     ${t.place ? `<p class="trip-place">📍 ${esc(t.place)}</p>` : ''}
     ${t.memo ? `<p class="trip-memo">${esc(t.memo)}</p>` : ''}
+    ${t.created_by && memberById(t.created_by) ? `<p class="trip-by" style="--mc:${esc(memberById(t.created_by).color)}"><i class="dot"></i>작성 ${esc(memberById(t.created_by).name)}</p>` : ''}
     <button class="chip sm" data-act="edit-trip" data-id="${t.id}">수정</button>
   </section>
   <section>
@@ -94,7 +95,7 @@ export function openTripForm(trip = null) {
 export const actions = {
   'open-trip': (el) => {
     closeSheet();
-    set({ tab: 'trips', tripId: el.dataset.id });
+    set({ tab: 'schedule', tripId: el.dataset.id });
     window.scrollTo(0, 0);
   },
   'trip-back': () => set({ tripId: null }),
