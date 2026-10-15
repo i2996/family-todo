@@ -6,23 +6,85 @@ import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, PALETTE, memberById, deviceMemberId } from './components.js';
 import { todayISO } from '../logic/dates.js';
 import { shareText } from '../logic/share.js';
+import { listFonts, currentFont, applyFont, loadFont, fontStack } from './theme.js';
 
 export const inviteLink = () => `${location.origin}${location.pathname}?code=${state.space.code}`;
 
+// ============================================================
+// 설정 메뉴 구성 — 항목을 늘릴 때는 아래 MENU 에 한 줄만 추가하면 돼요.
+// (같은 종류끼리 group 으로 묶여서 접고 펼칠 수 있어요. 새 묶음도 { id, icon, title, items } 로 추가)
+// sub 는 글자 또는 () => 글자 (현재 값을 보여줄 때)
+// ============================================================
+const MENU = [
+  {
+    id: 'family', icon: '👨‍👩‍👧‍👦', title: '가족',
+    items: [
+      { act: 'menu-members', icon: '👨‍👩‍👧‍👦', title: '가족 구성원', sub: '이름과 색상 관리' },
+      { act: 'menu-space', icon: '🔑', title: '가족 공간', sub: '가족 코드 · 초대 링크 · 비밀번호' },
+    ],
+  },
+  {
+    id: 'device', icon: '📱', title: '이 기기',
+    items: [
+      { act: 'menu-device', icon: '📱', title: '이 기기는 누구 거예요?', sub: '열자마자 내 할 일이 보여요' },
+      { act: 'menu-notify', icon: '🔔', title: '알림', sub: '새 할 일이 배정되면 알려줘요' },
+      { act: 'menu-font', icon: '🔤', title: '글꼴', sub: () => currentFont().label },
+    ],
+  },
+  {
+    id: 'data', icon: '💾', title: '데이터',
+    items: [
+      { act: 'menu-backup', icon: '💾', title: '데이터 백업', sub: 'JSON 파일로 내려받기' },
+      { act: 'menu-restore', icon: '♻️', title: '데이터 복원', sub: '백업 파일로 되돌리기' },
+    ],
+  },
+];
+
+const menuItem = (it) =>
+  `<button class="menu-item" data-act="${it.act}"><span class="m-ico">${it.icon}</span><span><b>${esc(it.title)}</b><small>${esc(typeof it.sub === 'function' ? it.sub() : it.sub)}</small></span><span class="go">›</span></button>`;
+
 export function openMenu() {
-  const item = (act, ico, title, sub) =>
-    `<button class="menu-item" data-act="${act}"><span class="m-ico">${ico}</span><span><b>${title}</b><small>${sub}</small></span><span class="go">›</span></button>`;
+  const saved = prefs.getMenuOpen(); // 기기마다 펼침 상태를 기억 (처음엔 첫 묶음만 펼침)
+  const isOpen = (g, i) => (saved ? !!saved[g.id] : i === 0);
   openSheet({
     title: '설정',
     body: `<div class="menu">
-      ${item('menu-members', '👨‍👩‍👧‍👦', '가족 구성원', '이름과 색상 관리')}
-      ${item('menu-device', '📱', '이 기기는 누구 거예요?', '열자마자 내 할 일이 보여요')}
-      ${item('menu-notify', '🔔', '알림', '새 할 일이 배정되면 알려줘요')}
-      ${item('menu-space', '🔑', '가족 공간', '가족 코드 · 초대 링크 · 비밀번호')}
-      ${item('menu-backup', '💾', '데이터 백업', 'JSON 파일로 내려받기')}
-      ${item('menu-restore', '♻️', '데이터 복원', '백업 파일로 되돌리기')}
+      ${MENU.map(
+        (g, i) => `<details class="menu-group" data-group="${g.id}" ${isOpen(g, i) ? 'open' : ''}>
+          <summary><span class="mg-ico">${g.icon}</span><b>${esc(g.title)}</b><small>${g.items.length}</small><span class="mg-chev">›</span></summary>
+          <div class="mg-body">${g.items.map(menuItem).join('')}</div>
+        </details>`
+      ).join('')}
       <input type="file" id="restore-input" accept=".json,application/json" hidden data-change="restore-file">
     </div>`,
+    onMount: (el) => {
+      el.querySelectorAll('details.menu-group').forEach((d) =>
+        d.addEventListener('toggle', () => {
+          const state = Object.fromEntries([...el.querySelectorAll('details.menu-group')].map((x) => [x.dataset.group, x.open]));
+          prefs.setMenuOpen(state);
+        })
+      );
+    },
+  });
+}
+
+/* ---------- 글꼴 ---------- */
+function openFonts() {
+  const cur = currentFont().id;
+  listFonts().forEach(loadFont); // 미리보기에 쓸 글꼴 등록 (실제 다운로드는 화면에 보일 때만)
+  openSheet({
+    title: '글꼴',
+    back: openMenu,
+    body: `<p class="note">고른 글꼴은 이 기기에만 적용돼요.</p>
+      <div class="font-list">${listFonts()
+        .map(
+          (f) => `<button class="font-item${f.id === cur ? ' on' : ''}" data-act="font-pick" data-id="${esc(f.id)}">
+            <span class="font-name">${esc(f.label)}</span>
+            <span class="font-sample" style="font-family:${esc(fontStack(f))}">우리 가족 ✿ 오늘 할 일 0123</span>
+            <span class="font-check">${f.id === cur ? '✓' : ''}</span>
+          </button>`
+        )
+        .join('')}</div>`,
   });
 }
 
@@ -50,7 +112,7 @@ export function openMemberForm(member = null) {
     title: m ? '구성원 수정' : '구성원 추가',
     back: openMembers,
     body: `<form data-form="member" data-id="${m ? m.id : ''}" autocomplete="off">
-      <input class="big-input" name="name" required maxlength="12" placeholder="이름 (예: 아빠)" value="${esc(m?.name)}">
+      <input class="big-input" name="name" required maxlength="12" placeholder="이름 (예: 남편)" value="${esc(m?.name)}">
       <div class="field"><span class="label">색상</span>
         <input type="hidden" name="color" value="${esc(color)}">
         <div class="swatches">
@@ -160,6 +222,12 @@ export const actions = {
   'menu-device': openDevice,
   'menu-space': openSpace,
   'menu-notify': openNotify,
+  'menu-font': openFonts,
+  'font-pick': (el) => {
+    prefs.setFont(el.dataset.id);
+    applyFont(el.dataset.id);
+    openFonts(); // 선택 표시 갱신
+  },
   'notify-pick-member': (el) => {
     prefs.setDeviceMember(el.dataset.v);
     set();
