@@ -55,11 +55,23 @@ export async function disablePush() {
   unwrap(await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint));
 }
 
-/** 이 기기 주인이 바뀌었거나 앱을 다시 열었을 때 서버의 구독 정보를 최신으로 */
-export async function syncPush(spaceId, memberId) {
-  if (!pushSupported() || Notification.permission !== 'granted' || !memberId) return;
-  const sub = await currentSubscription();
-  if (sub) await save(spaceId, memberId, sub);
+/**
+ * 앱을 열 때 / 이 기기 주인이 바뀔 때 서버의 구독 정보를 최신으로 맞춘다.
+ * 브라우저가 구독을 잃어버렸어도(업데이트, 사이트 데이터 삭제 등) 알림을 켜둔 기기(resubscribe)는 알아서 다시 구독한다.
+ * 반환: 'existing' | 'resubscribed' | 'none'
+ */
+export async function syncPush(spaceId, memberId, resubscribe = false) {
+  if (!pushSupported() || !pushConfigured() || Notification.permission !== 'granted' || !memberId) return 'none';
+  const reg = await registration();
+  let sub = await reg.pushManager.getSubscription();
+  let result = 'existing';
+  if (!sub) {
+    if (!resubscribe) return 'none';
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyToBytes(vapidKey()) });
+    result = 'resubscribed';
+  }
+  await save(spaceId, memberId, sub);
+  return result;
 }
 
 /** 서버 없이 이 기기에서만 알림이 뜨는지 확인 */
