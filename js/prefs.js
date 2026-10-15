@@ -25,4 +25,10 @@ export const prefs = {
   setFilter: (f) => write('filter', f),
   getFoodTab: () => read('foodTab', 'banchan'),
   setFoodTab: (v) => write('foodTab', v),
+  /** 글꼴 (이 기기에만 저장) */
+  getFont: () => read('font', 'default'),
+  setFont: (v) => write('font', v),
+  /** 설정 메뉴에서 펼쳐둔 묶음 { 묶음id: true/false } */
+  getMenuOpen: () => read('menuOpen', null),
+  setMenuOpen: (v) => write('menuOpen', v),
 };
