@@ -18,7 +18,7 @@ export const FONTS = [
   { id: 'default', label: '기본', name: null }, // css/style.css 의 기본 글꼴 그대로
 
   // style.css 에 @font-face 로 이미 들어 있는 글꼴 (이름은 마음대로 바꿔도 돼요)
-  { id: 'nostalgic', label: '그리운X국한박 사랑스러운)', name: 'NostalgicGukhanbakLovely' },
+  { id: 'nostalgic', label: '그리운X국한박 사랑스러운', name: 'NostalgicGukhanbakLovely' },
   { id: 'beloved', label: '그리운 묘은또박체', name: 'BelovedMyoeunttobak' },
 
   // ↓ 새 글꼴 추가 예시 (앞의 // 를 지우고 고쳐 쓰세요)
