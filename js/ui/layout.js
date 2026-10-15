@@ -35,7 +35,7 @@ export function render() {
   const view = document.getElementById('view');
   if (!view || !state.space) return;
   document.body.dataset.tab = state.tab; // CSS 가 탭마다 포인트 색을 바꿈
-  document.getElementById('brand').textContent = `✿ ${state.space.name}`;
+  document.getElementById('brand').textContent = `🫶🏻 ${state.space.name}`;
   const screens = { home: renderHome, tasks: renderTasks,
     // 외출/여행은 일정 탭에 흡수: 여행을 누르면 일정 탭 안에서 상세(준비할 일)가 열림
     schedule: () => (state.tripId && tripById(state.tripId) ? renderTripDetail(tripById(state.tripId)) : renderSchedule()), food: renderFood };
