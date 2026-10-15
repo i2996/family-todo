@@ -1,0 +1,18 @@
+/* 설정 메뉴(묶음 접기/펼치기) + 글꼴 선택 */
+.menu-group { border-bottom: 1.5px dotted var(--line); }
+.menu-group > summary { list-style: none; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 4px; cursor: pointer; }
+.menu-group > summary::-webkit-details-marker { display: none; }
+.mg-ico { font-size: 24px; width: 38px; text-align: center; }
+.menu-group > summary b { flex: 1; font-family: var(--font-head); font-weight: 400; font-size: 18px; }
+.menu-group > summary small { color: var(--muted); background: #f1efe7; border-radius: 10px; padding: 0 8px; }
+.mg-chev { color: var(--muted); font-size: 22px; transition: transform .15s; }
+.menu-group[open] .mg-chev { transform: rotate(90deg); }
+.mg-body { padding: 0 0 8px 12px; }
+.mg-body .menu-item { border-bottom: 0; min-height: 56px; }
+
+.font-list { display: grid; gap: 10px; }
+.font-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; text-align: left; padding: 12px 14px; border-radius: 16px; border: 2px solid var(--line); background: #fff; }
+.font-item.on { border-color: var(--accent-d); background: var(--accent-soft); }
+.font-name { grid-column: 1; font-size: 13px; color: var(--muted); }
+.font-sample { grid-column: 1; font-size: 20px; line-height: 1.4; word-break: keep-all; }
+.font-check { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--accent-d); font-size: 22px; }
