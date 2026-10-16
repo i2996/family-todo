@@ -1,0 +1,6 @@
+/* 먹거리: 식단 우측 '먹음' 버튼 / 먹은 반찬 표시 (style.css 는 건드리지 않고 이 파일만 추가) */
+.food-day { grid-template-columns: 62px 1fr auto; }
+.day-eat { align-self: start; min-width: 56px; justify-content: center; border-color: var(--accent-d); background: var(--accent-soft); }
+.day-eat.undo { border-color: var(--line); background: #fff; color: var(--muted); }
+.dish.eaten { opacity: .55; text-decoration: line-through; background: #efeee8; border-color: transparent; }
+.food-day.eaten .food-day-label { opacity: .6; }

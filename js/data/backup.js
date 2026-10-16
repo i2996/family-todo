@@ -136,7 +136,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
     });
     const foodPlan = (data.food_plan || [])
       .filter((p) => foodMap.has(p.item_id))
-      .map((p) => ({ item_id: foodMap.get(p.item_id), plan_date: p.plan_date, space_id: sid }));
+      .map((p) => ({ item_id: foodMap.get(p.item_id), plan_date: p.plan_date, space_id: sid, ...(p.eaten ? { eaten: true } : {}) }));
     unwrap(await supabase.from('food_items').delete().eq('space_id', sid));
     if (foodItems.length) unwrap(await supabase.from('food_items').insert(foodItems));
     if (foodPlan.length) unwrap(await supabase.from('food_plan').insert(foodPlan));

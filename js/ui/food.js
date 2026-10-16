@@ -45,14 +45,15 @@ function banchanView(today) {
     .map((d, i) => {
       const assigned = new Set(d.dishes.map((x) => x.id));
       const addable = items.filter((it) => !assigned.has(it.id));
-      return `<div class="food-day${i === 0 ? ' today' : ''}">
+      const allEaten = d.dishes.length > 0 && d.dishes.every((x) => x.eaten);
+      return `<div class="food-day${i === 0 ? ' today' : ''}${allEaten ? ' eaten' : ''}">
         <div class="food-day-label"><b>${i === 0 ? '오늘' : shortDate(d.date)}</b><span>${KO_DOW[dow(d.date)]}</span></div>
         <div class="food-day-body">
           ${
             d.dishes.length
               ? `<div class="dishes">${d.dishes
                   .map(
-                    (x) => `<span class="dish${x.urgent ? ' urgent' : ''}">${x.frozen ? '🧊 ' : ''}${esc(x.name)}
+                    (x) => `<span class="dish${x.urgent ? ' urgent' : ''}${x.eaten ? ' eaten' : ''}">${x.eaten ? '✓ ' : ''}${x.frozen ? '🧊 ' : ''}${esc(x.name)}
                       <button data-act="plan-remove" data-date="${d.date}" data-item="${x.id}" aria-label="${esc(x.name)} 빼기">×</button></span>`
                   )
                   .join('')}</div>`
@@ -66,6 +67,11 @@ function banchanView(today) {
               : ''
           }
         </div>
+        ${
+          d.dishes.length
+            ? `<button class="chip sm day-eat${allEaten ? ' undo' : ''}" data-act="${allEaten ? 'food-undo-day' : 'food-eat-day'}" data-date="${d.date}" aria-label="${shortDate(d.date)} 식단 ${allEaten ? '먹음 취소' : '모두 먹음'}">${allEaten ? '먹음 취소' : '먹음'}</button>`
+            : ''
+        }
       </div>`;
     })
     .join('');
@@ -191,6 +197,22 @@ export const actions = {
   'food-eat': async (el) => {
     try {
       if ((await A.eatFoodItem(el.dataset.id)) === 'removed') toast('다 먹었어요! 목록에서 지웠어요');
+    } catch (e) {
+      toast(errMsg(e));
+    }
+  },
+  'food-eat-day': async (el) => {
+    try {
+      const r = await A.eatDay(el.dataset.date);
+      if (r.count) toast(r.removed ? `${r.count}개 먹음 처리했어요. 다 먹은 ${r.removed}개는 목록에서 지웠어요` : `${r.count}개 먹음 처리했어요`);
+    } catch (e) {
+      toast(String(e && e.message).includes('eaten') ? '먼저 supabase/food-eaten.sql 을 실행해주세요' : errMsg(e));
+    }
+  },
+  'food-undo-day': async (el) => {
+    try {
+      const n = await A.undoEatDay(el.dataset.date);
+      if (n) toast('먹음을 취소했어요');
     } catch (e) {
       toast(errMsg(e));
     }

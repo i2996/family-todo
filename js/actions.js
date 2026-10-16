@@ -203,6 +203,56 @@ export async function eatFoodItem(id) {
   }
   return 'ok';
 }
+/**
+ * 그 날 식단의 반찬을 한 번에 '먹음' 처리: 반찬마다 남은 끼분 -1 (0이 되면 목록에서 삭제), 식단에는 '먹음' 표시.
+ * 반환: { count: 처리한 반찬 수, removed: 다 먹어서 지운 반찬 수 }
+ */
+export async function eatDay(date) {
+  const rows = state.foodPlan.filter((r) => r.plan_date === date && !r.eaten && state.foodItems.some((i) => i.id === r.item_id));
+  if (!rows.length) return { count: 0, removed: 0 };
+  const ids = rows.map((r) => r.item_id);
+  const before = state.foodItems.filter((i) => ids.includes(i.id));
+  const removedIds = before.filter((i) => i.servings <= 1).map((i) => i.id);
+  const keptIds = ids.filter((id) => !removedIds.includes(id));
+  set({
+    foodItems: state.foodItems
+      .filter((i) => !removedIds.includes(i.id))
+      .map((i) => (keptIds.includes(i.id) ? { ...i, servings: i.servings - 1 } : i)),
+    foodPlan: state.foodPlan
+      .filter((r) => !removedIds.includes(r.item_id))
+      .map((r) => (r.plan_date === date && keptIds.includes(r.item_id) ? { ...r, eaten: true } : r)),
+  });
+  try {
+    await Promise.all([
+      ...before.map((i) => (i.servings <= 1 ? foodDb.deleteFood(i.id) : foodDb.setServings(i.id, i.servings - 1))),
+      keptIds.length ? foodDb.markPlanEaten(date, keptIds, true) : null,
+    ]);
+  } catch (e) {
+    set(await loadFood());
+    throw e;
+  }
+  return { count: rows.length, removed: removedIds.length };
+}
+
+/** 하루치 '먹음' 취소: 남은 끼분을 다시 +1 하고 표시를 지움 (이미 다 먹어서 삭제된 반찬은 되돌릴 수 없음) */
+export async function undoEatDay(date) {
+  const rows = state.foodPlan.filter((r) => r.plan_date === date && r.eaten);
+  if (!rows.length) return 0;
+  const ids = rows.map((r) => r.item_id);
+  const before = state.foodItems.filter((i) => ids.includes(i.id));
+  set({
+    foodItems: state.foodItems.map((i) => (ids.includes(i.id) ? { ...i, servings: i.servings + 1 } : i)),
+    foodPlan: state.foodPlan.map((r) => (r.plan_date === date && ids.includes(r.item_id) ? { ...r, eaten: false } : r)),
+  });
+  try {
+    await Promise.all([...before.map((i) => foodDb.setServings(i.id, i.servings + 1)), foodDb.markPlanEaten(date, ids, false)]);
+  } catch (e) {
+    set(await loadFood());
+    throw e;
+  }
+  return rows.length;
+}
+
 export async function addPlanEntry(date, itemId) {
   if (state.foodPlan.some((r) => r.item_id === itemId && r.plan_date === date)) return;
   set({ foodPlan: [...state.foodPlan, { item_id: itemId, plan_date: date, space_id: sid() }] });

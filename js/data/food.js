@@ -30,3 +30,7 @@ export async function replacePlan(sid, from, to, rows) {
   unwrap(await supabase.from('food_plan').delete().eq('space_id', sid).gte('plan_date', from).lte('plan_date', to));
   if (rows.length) unwrap(await supabase.from('food_plan').insert(rows.map((r) => ({ ...r, space_id: sid }))));
 }
+
+/** 그 날(date)의 식단 중 itemIds 에 해당하는 반찬을 '먹음/먹음 취소'로 표시 */
+export const markPlanEaten = async (date, itemIds, eaten) =>
+  unwrap(await supabase.from('food_plan').update({ eaten }).eq('plan_date', date).in('item_id', itemIds));

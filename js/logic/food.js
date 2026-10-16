@@ -80,7 +80,7 @@ export function resolvePlan(items, planRows, today) {
       .map((r) => {
         const it = byId.get(r.item_id);
         const e = expiryOf(it);
-        return { id: it.id, name: it.name, urgent: e ? diffDays(date, e) <= 1 : false, frozen: it.storage === 'frozen' };
+        return { id: it.id, name: it.name, urgent: e ? diffDays(date, e) <= 1 : false, frozen: it.storage === 'frozen', eaten: !!r.eaten };
       });
     days.push({ date, dishes, thaw: [] });
   }
