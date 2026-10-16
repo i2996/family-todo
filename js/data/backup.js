@@ -18,6 +18,11 @@ export async function exportAll(space) {
   try {
     const [food_items, food_plan] = await Promise.all([foodDb.listFood(sid), foodDb.listPlan(sid)]);
     food = { food_items, food_plan };
+    try {
+      food.food_days = await foodDb.listDays(sid);
+    } catch {
+      /* food-outing.sql 을 아직 안 돌린 경우 */
+    }
   } catch {
     /* food.sql 을 아직 안 돌린 경우: 먹거리는 빼고 백업 */
   }
@@ -140,6 +145,15 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
     unwrap(await supabase.from('food_items').delete().eq('space_id', sid));
     if (foodItems.length) unwrap(await supabase.from('food_items').insert(foodItems));
     if (foodPlan.length) unwrap(await supabase.from('food_plan').insert(foodPlan));
+    if (Array.isArray(data.food_days)) {
+      try {
+        unwrap(await supabase.from('food_days').delete().eq('space_id', sid));
+        const days = data.food_days.map((d) => ({ space_id: sid, plan_date: d.plan_date, kind: d.kind || 'out' }));
+        if (days.length) unwrap(await supabase.from('food_days').insert(days));
+      } catch {
+        /* food-outing.sql 을 아직 안 돌린 경우: 외식 표시는 건너뜀 */
+      }
+    }
   }
 
   // 일정: 백업에 일정이 들어 있을 때만 교체

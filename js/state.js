@@ -8,6 +8,8 @@ export const state = {
   foodItems: [],
   foodPlan: [],
   foodReady: true, // food.sql 이 적용돼 있는지
+  foodDays: [], // 외식하는 날 [{ plan_date, kind: 'out' }]
+  outingReady: true, // food-outing.sql 이 적용돼 있는지
   events: [],
   eventsReady: true, // events.sql 이 적용돼 있는지
   tab: 'home', // 'home' | 'tasks' | 'schedule' | 'food'

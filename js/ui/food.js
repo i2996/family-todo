@@ -5,11 +5,14 @@ import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg } from './components.js';
 import * as F from '../logic/food.js';
-import { todayISO, addDays, shortDate, dow, KO_DOW, diffDays } from '../logic/dates.js';
+import { todayISO, addDays, shortDate, dow, KO_DOW, diffDays, labelDate } from '../logic/dates.js';
 
 const STORAGE = { room: '실온', fridge: '냉장', frozen: '냉동' };
 const STORAGE_ICON = { room: '🏠', fridge: '❄️', frozen: '🧊' };
 const UNIT = { banchan: '끼분', snack: '개' };
+
+// '내일로' / '10/18로'
+const dayWord = (date) => (labelDate(date, todayISO()) === '내일' ? '내일로' : `${shortDate(date)}로`);
 
 const subTab = () => (prefs.getFoodTab() === 'snack' ? 'snack' : 'banchan');
 const itemsOf = (kind) => state.foodItems.filter((i) => i.kind === kind);
@@ -37,7 +40,8 @@ function banchanView(today) {
   if (!items.length) {
     return `<p class="empty big">아직 등록된 반찬이 없어요.<br>배달 온 반찬을 등록하면 이번 주 식단을 짜드려요 🍚</p>`;
   }
-  const plan = F.resolvePlan(items, state.foodPlan, today);
+  const outSet = A.outDates();
+  const plan = F.resolvePlan(items, state.foodPlan, today, outSet);
   const hasPlan = plan.some((d) => d.dishes.length);
   const missed = F.missedItems(items, plan, today);
 
@@ -46,8 +50,8 @@ function banchanView(today) {
       const assigned = new Set(d.dishes.map((x) => x.id));
       const addable = items.filter((it) => !assigned.has(it.id));
       const allEaten = d.dishes.length > 0 && d.dishes.every((x) => x.eaten);
-      return `<div class="food-day${i === 0 ? ' today' : ''}${allEaten ? ' eaten' : ''}">
-        <div class="food-day-label"><b>${i === 0 ? '오늘' : shortDate(d.date)}</b><span>${KO_DOW[dow(d.date)]}</span></div>
+      return `<div class="food-day${i === 0 ? ' today' : ''}${allEaten ? ' eaten' : ''}${d.out ? ' out' : ''}">
+        <div class="food-day-label"><b>${i === 0 ? '오늘' : shortDate(d.date)}</b><span>${KO_DOW[dow(d.date)]}</span>${d.out ? '<em class="out-tag">외식</em>' : ''}</div>
         <div class="food-day-body">
           ${
             d.dishes.length
@@ -57,7 +61,7 @@ function banchanView(today) {
                       <button data-act="plan-remove" data-date="${d.date}" data-item="${x.id}" aria-label="${esc(x.name)} 빼기">×</button></span>`
                   )
                   .join('')}</div>`
-              : '<span class="food-empty">—</span>'
+              : d.out ? '<span class="food-empty">🍽️ 외식하는 날</span>' : '<span class="food-empty">—</span>'
           }
           ${d.thaw.length ? `<div class="thaw">❄️→냉장 해동: ${d.thaw.map(esc).join(', ')}</div>` : ''}
           ${
@@ -67,11 +71,17 @@ function banchanView(today) {
               : ''
           }
         </div>
-        ${
-          d.dishes.length
-            ? `<button class="chip sm day-eat${allEaten ? ' undo' : ''}" data-act="${allEaten ? 'food-undo-day' : 'food-eat-day'}" data-date="${d.date}" aria-label="${shortDate(d.date)} 식단 ${allEaten ? '먹음 취소' : '모두 먹음'}">${allEaten ? '먹음 취소' : '먹음'}</button>`
-            : ''
-        }
+        <div class="day-actions">
+          ${
+            d.dishes.length
+              ? allEaten
+                ? `<button class="chip sm day-eat undo" data-act="food-undo-day" data-date="${d.date}">먹음 취소</button>`
+                : `<button class="chip sm day-eat" data-act="food-eat-day" data-date="${d.date}" aria-label="${shortDate(d.date)} 식단 모두 먹음">먹음</button>
+                   <button class="chip sm day-sub" data-act="food-postpone-day" data-date="${d.date}" aria-label="${shortDate(d.date)} 식단 다음 날로 미루기">미루기</button>`
+              : ''
+          }
+          <button class="chip sm day-sub${d.out ? ' on' : ''}" data-act="food-out-toggle" data-date="${d.date}" data-out="${d.out ? '0' : '1'}">${d.out ? '외식 취소' : '🍽️ 외식'}</button>
+        </div>
       </div>`;
     })
     .join('');
@@ -217,6 +227,24 @@ export const actions = {
       toast(errMsg(e));
     }
   },
+  'food-postpone-day': async (el) => {
+    try {
+      const r = await A.postponeDay(el.dataset.date);
+      if (r.count) toast(`반찬 ${r.count}개를 ${dayWord(r.target)} 미뤘어요`);
+    } catch (e) {
+      toast(errMsg(e));
+    }
+  },
+  'food-out-toggle': async (el) => {
+    const out = el.dataset.out === '1';
+    try {
+      const r = await A.setOuting(el.dataset.date, out);
+      if (!out) toast('외식 표시를 지웠어요');
+      else toast(r.count ? `외식하는 날로 표시하고 반찬 ${r.count}개를 ${dayWord(r.target)} 미뤘어요` : '외식하는 날로 표시했어요');
+    } catch (e) {
+      toast(String(e && e.message).includes('food_days') ? '먼저 supabase/food-outing.sql 을 실행해주세요' : errMsg(e));
+    }
+  },
   'plan-remove': async (el) => {
     try {
       await A.removePlanEntry(el.dataset.item, el.dataset.date);
@@ -238,7 +266,7 @@ export const actions = {
       if (!ok) return;
     }
     try {
-      await A.regeneratePlan(today, to, F.autoAssign(items, today));
+      await A.regeneratePlan(today, to, F.autoAssign(items, today, undefined, A.outDates())); // 외식하는 날은 빼고 배정
       toast('이번 주 식단을 짰어요');
     } catch (e) {
       toast(errMsg(e));

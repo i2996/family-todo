@@ -5,6 +5,7 @@ import { supabase } from './client.js';
 const CORE_TABLES = ['members', 'tasks', 'trips', 'task_completions'];
 const FOOD_TABLES = ['food_items', 'food_plan'];
 const EVENT_TABLES = ['events'];
+const OUTING_TABLES = ['food_days']; // food-outing.sql 을 안 돌려도 다른 동기화가 죽지 않게 따로 구독
 
 function open(name, sid, tables, onChange) {
   const channel = supabase.channel(name);
@@ -22,6 +23,7 @@ export function subscribeSpace(sid, onChange) {
     open(`space:${sid}`, sid, CORE_TABLES, onChange),
     open(`food:${sid}`, sid, FOOD_TABLES, onChange),
     open(`events:${sid}`, sid, EVENT_TABLES, onChange),
+    open(`fooddays:${sid}`, sid, OUTING_TABLES, onChange),
   ];
   return () => channels.forEach((c) => supabase.removeChannel(c));
 }

@@ -11,20 +11,32 @@ import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
 import { prefs } from './prefs.js';
+import { addDays } from './logic/dates.js';
 
 const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food, ev] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev, days] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
     tasksDb.listCompletions(sid()),
     loadFood(),
     loadEvents(),
+    loadDays(),
   ]);
-  set({ members, trips, tasks, completions, ...food, ...ev });
+  set({ members, trips, tasks, completions, ...food, ...ev, ...days });
+}
+
+/** 외식 표시 테이블(food-outing.sql)이 없어도 식단은 정상 동작 */
+async function loadDays() {
+  try {
+    return { foodDays: await foodDb.listDays(sid()), outingReady: true };
+  } catch (e) {
+    console.warn('외식 표시를 불러오지 못했어요 (supabase/food-outing.sql 실행 필요)', e);
+    return { foodDays: [], outingReady: false };
+  }
 }
 
 /** 일정 테이블(events.sql)이 아직 없어도 나머지 앱은 정상 동작하도록 따로 불러온다 */
@@ -58,6 +70,7 @@ export async function refresh(table) {
     case 'food_items':
     case 'food_plan': return set(await loadFood());
     case 'events': return set(await loadEvents());
+    case 'food_days': return set(await loadDays());
     default: return loadAll();
   }
 }
@@ -251,6 +264,45 @@ export async function undoEatDay(date) {
     throw e;
   }
   return rows.length;
+}
+
+/** 외식하는 날 모음 */
+export const outDates = () => new Set(state.foodDays.filter((d) => d.kind === 'out').map((d) => d.plan_date));
+
+/** 그 날 식단의 (안 먹은) 반찬을 다음 날로 미룸. 다음 날이 외식이면 그다음 날로. 반환: { count, target } */
+export async function postponeDay(date) {
+  const outs = outDates();
+  let target = addDays(date, 1);
+  for (let i = 0; i < 14 && outs.has(target); i++) target = addDays(target, 1);
+  const rows = state.foodPlan.filter((r) => r.plan_date === date && !r.eaten && state.foodItems.some((i) => i.id === r.item_id));
+  if (!rows.length) return { count: 0, target };
+  const ids = rows.map((r) => r.item_id);
+  const have = new Set(state.foodPlan.filter((r) => r.plan_date === target).map((r) => r.item_id));
+  set({
+    foodPlan: [
+      ...state.foodPlan.filter((r) => !(r.plan_date === date && ids.includes(r.item_id))),
+      ...ids.filter((id) => !have.has(id)).map((id) => ({ item_id: id, plan_date: target, space_id: sid(), eaten: false })),
+    ],
+  });
+  try {
+    await foodDb.movePlan(sid(), date, target, ids);
+  } catch (e) {
+    set(await loadFood());
+    throw e;
+  }
+  return { count: rows.length, target };
+}
+
+/** 외식하는 날 표시/해제. 표시하면 그 날 반찬은 다음 날로 미뤄짐 */
+export async function setOuting(date, out) {
+  set({ foodDays: [...state.foodDays.filter((d) => d.plan_date !== date), ...(out ? [{ plan_date: date, kind: 'out', space_id: sid() }] : [])] });
+  try {
+    await foodDb.setDayOut(sid(), date, out);
+  } catch (e) {
+    set(await loadDays());
+    throw e;
+  }
+  return out ? postponeDay(date) : { count: 0, target: null };
 }
 
 export async function addPlanEntry(date, itemId) {

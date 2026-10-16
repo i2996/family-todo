@@ -34,3 +34,23 @@ export async function replacePlan(sid, from, to, rows) {
 /** 그 날(date)의 식단 중 itemIds 에 해당하는 반찬을 '먹음/먹음 취소'로 표시 */
 export const markPlanEaten = async (date, itemIds, eaten) =>
   unwrap(await supabase.from('food_plan').update({ eaten }).eq('plan_date', date).in('item_id', itemIds));
+
+/** fromDate 의 반찬(itemIds)을 toDate 로 옮김 (이미 그 날에 있는 반찬은 중복 없이) */
+export async function movePlan(sid, fromDate, toDate, itemIds) {
+  unwrap(await supabase.from('food_plan').delete().eq('plan_date', fromDate).in('item_id', itemIds));
+  unwrap(
+    await supabase
+      .from('food_plan')
+      .upsert(itemIds.map((item_id) => ({ space_id: sid, plan_date: toDate, item_id })), { onConflict: 'item_id,plan_date', ignoreDuplicates: true })
+  );
+}
+
+/* ---- 외식하는 날 ---- */
+export const listDays = async (sid) => unwrap(await supabase.from('food_days').select('*').eq('space_id', sid));
+
+export async function setDayOut(sid, date, out) {
+  if (out) {
+    return unwrap(await supabase.from('food_days').upsert({ space_id: sid, plan_date: date, kind: 'out' }, { onConflict: 'space_id,plan_date' }));
+  }
+  return unwrap(await supabase.from('food_days').delete().eq('space_id', sid).eq('plan_date', date));
+}

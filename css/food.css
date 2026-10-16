@@ -4,3 +4,11 @@
 .day-eat.undo { border-color: var(--line); background: #fff; color: var(--muted); }
 .dish.eaten { opacity: .55; text-decoration: line-through; background: #efeee8; border-color: transparent; }
 .food-day.eaten .food-day-label { opacity: .6; }
+
+/* 식단: 하루 단위 버튼(먹음 · 미루기 · 외식) / 외식하는 날 표시 */
+.day-actions { display: flex; flex-direction: column; align-items: stretch; gap: 6px; align-self: start; }
+.day-actions .chip { justify-content: center; min-width: 64px; }
+.day-sub { color: var(--muted); }
+.day-sub.on { color: var(--ink); background: var(--butter-soft); border-color: var(--butter-d); }
+.out-tag { margin-top: 2px; padding: 0 7px; border-radius: 9px; font-style: normal; font-size: 11px; background: var(--butter); color: var(--butter-d); }
+.food-day.out .food-day-label { background: var(--butter-soft); }

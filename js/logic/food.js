@@ -26,18 +26,25 @@ export const sortByExpiry = (items, today) =>
  * - 유통기한이 오늘/내일인 반찬은 하루 제한(기본 3개)을 넘어도 반드시 포함
  * - 그 외에는 어제 먹은 반찬을 피하고 무작위로 섞음
  */
-export function autoAssign(items, today, rng = Math.random) {
+export function autoAssign(items, today, rng = Math.random, skipDates = new Set()) {
   const pool = items
     .filter((it) => it.servings > 0)
     .map((it) => ({ id: it.id, remaining: it.servings, expiry: expiryOf(it) || addDays(today, 365), jitter: rng() }));
 
   const total = pool.reduce((s, p) => s + p.remaining, 0);
-  const base = total === 0 ? 0 : Math.min(MAX_DISHES_PER_DAY, Math.max(1, Math.round(total / 7)));
+  // 외식하는 날(skipDates)에는 배정하지 않고, 남은 날수로 나눠서 하루 반찬 수를 계산
+  const usableDays = Math.max(1, 7 - [...Array(7).keys()].filter((o) => skipDates.has(addDays(today, o))).length);
+  const base = total === 0 ? 0 : Math.min(MAX_DISHES_PER_DAY, Math.max(1, Math.round(total / usableDays)));
   const byKey = {};
   let last = new Set();
 
   for (let offset = 0; offset < 7; offset++) {
     const day = addDays(today, offset);
+    if (skipDates.has(day)) {
+      byKey[day] = [];
+      last = new Set();
+      continue;
+    }
     const urgentOf = (p) => (diffDays(day, p.expiry) <= 1 ? 0 : 1);
     const cands = pool.filter((p) => p.remaining > 0 && diffDays(day, p.expiry) >= 0);
 
@@ -70,7 +77,7 @@ export function autoAssign(items, today, rng = Math.random) {
 }
 
 /** 저장된 식단 행(plan_date, item_id)을 오늘부터 7일치 표시용으로 변환 + 다음 날 냉동 반찬 해동 안내 */
-export function resolvePlan(items, planRows, today) {
+export function resolvePlan(items, planRows, today, outDates = new Set()) {
   const byId = new Map(items.map((it) => [it.id, it]));
   const days = [];
   for (let i = 0; i < 7; i++) {
@@ -82,7 +89,7 @@ export function resolvePlan(items, planRows, today) {
         const e = expiryOf(it);
         return { id: it.id, name: it.name, urgent: e ? diffDays(date, e) <= 1 : false, frozen: it.storage === 'frozen', eaten: !!r.eaten };
       });
-    days.push({ date, dishes, thaw: [] });
+    days.push({ date, dishes, thaw: [], out: outDates.has(date) });
   }
   for (let i = 0; i < days.length - 1; i++) {
     days[i].thaw = [...new Set(days[i + 1].dishes.filter((d) => d.frozen).map((d) => d.name))];
