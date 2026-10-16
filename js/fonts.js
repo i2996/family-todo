@@ -22,7 +22,10 @@ export const FONTS = [
   { id: 'NanumSquareNeo', label: '나눔스퀘어네오', name: 'NanumSquareNeo' },
   { id: 'MaruBuri', label: '마루부리', name: 'MaruBuri' },
   { id: 'nostalgic', label: '그리운X국중박 사랑스러운', name: 'NostalgicGukhanbakLovely' },
+  { id: 'OkDandan', label: 'OK 단단체', name: 'OkDandan' },
+  { id: 'OngleipParkDahyeon', label: '온글잎 박다현체', name: 'OngleipParkDahyeon' },
   { id: 'beloved', label: '그리운 묘은또박체', name: 'BelovedMyoeunttobak' },
+  { id: 'IsYun', label: '이서윤체', name: 'IsYun' },
 
   // ↓ 새 글꼴 추가 예시 (앞의 // 를 지우고 고쳐 쓰세요)
   // { id: 'myfont', label: '내 글꼴', name: 'MyFont', url: 'fonts/MyFont.woff2' },
