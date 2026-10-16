@@ -26,8 +26,13 @@ export const prefs = {
   getFoodTab: () => read('foodTab', 'banchan'),
   setFoodTab: (v) => write('foodTab', v),
   /** 글꼴 (이 기기에만 저장) */
-  getFont: () => read('font', 'default'),
-  setFont: (v) => write('font', v),
+  getFonts: () => {
+    const f = read('fonts', null);
+    if (f) return { body: f.body || 'default', head: f.head || 'default' };
+    const old = read('font', 'default'); // 예전에 하나만 고르던 값은 내용·제목 둘 다로
+    return { body: old, head: old };
+  },
+  setFonts: (v) => write('fonts', v), // { body: 내용 글꼴 id, head: 제목 글꼴 id }
   /** 이 기기에서 알림을 켜뒀는지 (true=켬, false=직접 끔, null=모름) */
   getPushWanted: () => read('pushWanted', null),
   setPushWanted: (v) => write('pushWanted', v),

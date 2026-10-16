@@ -10,18 +10,16 @@
 //             - 웹에 있는 파일이면 https://... 전체 주소
 //   stylesheet : (선택) 구글 폰트처럼 글꼴 CSS 주소를 줄 때 (url 대신 사용)
 //   weight  : (선택) 글꼴 굵기. 기본 'normal'
-//   head    : (선택) 제목에만 다른 글꼴을 쓰고 싶을 때 그 글꼴의 name
 //
 // css/style.css 의 @font-face 로 이미 불러온 글꼴은 url 없이 name 만 적으면 돼요.
+// 내용(본문)/제목에 따로 적용하는 건 설정 → 글꼴 의 '어디에 적용할까요?' 에서 골라요.
 // ============================================================
 export const FONTS = [
   { id: 'default', label: '기본', name: null }, // css/style.css 의 기본 글꼴 그대로
 
   // style.css 에 @font-face 로 이미 들어 있는 글꼴 (이름은 마음대로 바꿔도 돼요)
-  { id: 'NanumSquareNeo', label: '나눔스퀘어네오', name: 'NanumSquareNeo' },
-  { id: 'MaruBuri', label: '마루부리', name: 'MaruBuri' },
-  { id: 'nostalgic', label: '그리운X국한박 사랑스러운', name: 'NostalgicGukhanbakLovely' },
-  { id: 'beloved', label: '그리운 묘은또박체', name: 'BelovedMyoeunttobak' },
+  { id: 'nostalgic', label: 'NostalgicGukhanbakLovely', name: 'NostalgicGukhanbakLovely' },
+  { id: 'beloved', label: 'BelovedMyoeunttobak', name: 'BelovedMyoeunttobak' },
 
   // ↓ 새 글꼴 추가 예시 (앞의 // 를 지우고 고쳐 쓰세요)
   // { id: 'myfont', label: '내 글꼴', name: 'MyFont', url: 'fonts/MyFont.woff2' },

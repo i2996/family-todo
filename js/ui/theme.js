@@ -7,7 +7,15 @@ const loaded = new Set();
 
 export const listFonts = () => FONTS;
 export const fontById = (id) => FONTS.find((f) => f.id === id) || FONTS[0];
-export const currentFont = () => fontById(prefs.getFont());
+/** 지금 쓰는 글꼴: { body: 내용, head: 제목 } */
+export const currentFonts = () => {
+  const { body, head } = prefs.getFonts();
+  return { body: fontById(body), head: fontById(head) };
+};
+export function fontSummary() {
+  const { body, head } = currentFonts();
+  return body.id === head.id ? body.label : `내용 ${body.label} · 제목 ${head.label}`;
+}
 
 const quote = (n) => `'${String(n).replace(/'/g, '')}'`;
 const stackOf = (name) => `${quote(name)}, ${STACK_TAIL}`;
@@ -35,22 +43,22 @@ export function loadFont(f) {
   }
 }
 
-export function applyFont(id) {
+/** 내용(--font-body)과 제목(--font-head)을 각각 적용. '기본'이면 style.css 에 정해둔 글꼴 그대로 */
+export function applyFonts({ body, head }) {
   const root = document.documentElement.style;
-  const f = fontById(id);
-  if (!f || !f.name) {
-    root.removeProperty('--font-body'); // 기본: style.css 에 정해둔 글꼴
-    root.removeProperty('--font-head');
-    return;
-  }
-  loadFont(f);
-  if (f.head) loadFont(FONTS.find((x) => x.name === f.head));
-  root.setProperty('--font-body', stackOf(f.name));
-  root.setProperty('--font-head', stackOf(f.head || f.name));
+  const apply = (prop, id) => {
+    const f = fontById(id);
+    if (!f || !f.name) return root.removeProperty(prop);
+    loadFont(f);
+    root.setProperty(prop, stackOf(f.name));
+  };
+  apply('--font-body', body);
+  apply('--font-head', head);
 }
 
 /** 앱을 열 때 저장된 글꼴 적용 (목록에서 지워진 글꼴이면 기본으로) */
 export function applySavedFont() {
-  const id = prefs.getFont();
-  applyFont(FONTS.some((f) => f.id === id) ? id : 'default');
+  const ok = (id) => (FONTS.some((f) => f.id === id) ? id : 'default');
+  const { body, head } = prefs.getFonts();
+  applyFonts({ body: ok(body), head: ok(head) });
 }

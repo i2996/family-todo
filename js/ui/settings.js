@@ -6,7 +6,7 @@ import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, PALETTE, memberById, deviceMemberId } from './components.js';
 import { todayISO } from '../logic/dates.js';
 import { shareText } from '../logic/share.js';
-import { listFonts, currentFont, applyFont, loadFont, fontStack } from './theme.js';
+import { listFonts, currentFonts, fontSummary, applyFonts, loadFont, fontStack } from './theme.js';
 
 export const inviteLink = () => `${location.origin}${location.pathname}?code=${state.space.code}`;
 
@@ -28,7 +28,7 @@ const MENU = [
     items: [
       { act: 'menu-device', icon: '📱', title: '이 기기는 누구 거예요?', sub: '열자마자 내 할 일이 보여요' },
       { act: 'menu-notify', icon: '🔔', title: '알림', sub: '새 할 일이 배정되면 알려줘요' },
-      { act: 'menu-font', icon: '🔤', title: '글꼴', sub: () => currentFont().label },
+      { act: 'menu-font', icon: '🔤', title: '글꼴', sub: () => fontSummary() },
     ],
   },
   {
@@ -69,22 +69,32 @@ export function openMenu() {
 }
 
 /* ---------- 글꼴 ---------- */
+let fontScope = 'all'; // 'all' 전체 | 'body' 내용만 | 'head' 제목만
+const SCOPES = [['all', '전체'], ['body', '내용만'], ['head', '제목만']];
+
+function fontListHTML() {
+  const cur = currentFonts();
+  return listFonts()
+    .map((f) => {
+      const tags = [cur.body.id === f.id ? '내용' : '', cur.head.id === f.id ? '제목' : ''].filter(Boolean);
+      return `<button class="font-item${tags.length ? ' on' : ''}" data-act="font-pick" data-id="${esc(f.id)}">
+        <span class="font-name">${esc(f.label)}${tags.map((t) => `<em class="font-tag">${t}</em>`).join('')}</span>
+        <span class="font-sample" style="font-family:${esc(fontStack(f))}">우리 가족 ✿ 오늘 할 일 0123</span>
+        <span class="font-check">${tags.length ? '✓' : ''}</span>
+      </button>`;
+    })
+    .join('');
+}
+
 function openFonts() {
-  const cur = currentFont().id;
   listFonts().forEach(loadFont); // 미리보기에 쓸 글꼴 등록 (실제 다운로드는 화면에 보일 때만)
   openSheet({
     title: '글꼴',
     back: openMenu,
-    body: `<p class="note">고른 글꼴은 이 기기에만 적용돼요.</p>
-      <div class="font-list">${listFonts()
-        .map(
-          (f) => `<button class="font-item${f.id === cur ? ' on' : ''}" data-act="font-pick" data-id="${esc(f.id)}">
-            <span class="font-name">${esc(f.label)}</span>
-            <span class="font-sample" style="font-family:${esc(fontStack(f))}">우리 가족 ✿ 오늘 할 일 0123</span>
-            <span class="font-check">${f.id === cur ? '✓' : ''}</span>
-          </button>`
-        )
-        .join('')}</div>`,
+    body: `<div class="field" style="margin-top:0"><span class="label">어디에 적용할까요?</span>
+        <div class="seg wide" id="font-scope" role="group">${SCOPES.map(([id, l]) => `<button type="button" class="${fontScope === id ? 'on' : ''}" data-act="font-scope" data-v="${id}">${l}</button>`).join('')}</div></div>
+      <p class="note">고른 글꼴은 이 기기에만 적용돼요. 내용은 본문 글자, 제목은 큰 제목 글자예요.</p>
+      <div class="font-list" id="font-list">${fontListHTML()}</div>`,
   });
 }
 
@@ -225,10 +235,17 @@ export const actions = {
   'menu-space': openSpace,
   'menu-notify': openNotify,
   'menu-font': openFonts,
+  'font-scope': (el) => {
+    fontScope = el.dataset.v;
+    document.querySelectorAll('#font-scope button').forEach((b) => b.classList.toggle('on', b.dataset.v === fontScope));
+  },
   'font-pick': (el) => {
-    prefs.setFont(el.dataset.id);
-    applyFont(el.dataset.id);
-    openFonts(); // 선택 표시 갱신
+    const cur = prefs.getFonts();
+    const id = el.dataset.id;
+    const next = { body: fontScope === 'head' ? cur.body : id, head: fontScope === 'body' ? cur.head : id };
+    prefs.setFonts(next);
+    applyFonts(next);
+    document.getElementById('font-list').innerHTML = fontListHTML(); // 목록 위치는 그대로 두고 표시만 갱신
   },
   'notify-pick-member': (el) => {
     prefs.setDeviceMember(el.dataset.v);
