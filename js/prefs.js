@@ -28,6 +28,9 @@ export const prefs = {
   /** 글꼴 (이 기기에만 저장) */
   getFont: () => read('font', 'default'),
   setFont: (v) => write('font', v),
+  /** 이 기기에서 알림을 켜뒀는지 (true=켬, false=직접 끔, null=모름) */
+  getPushWanted: () => read('pushWanted', null),
+  setPushWanted: (v) => write('pushWanted', v),
   /** 설정 메뉴에서 펼쳐둔 묶음 { 묶음id: true/false } */
   getMenuOpen: () => read('menuOpen', null),
   setMenuOpen: (v) => write('menuOpen', v),

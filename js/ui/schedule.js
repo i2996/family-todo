@@ -113,7 +113,7 @@ export function openEventForm({ event = null, date = null } = {}) {
     <div class="field"><span class="label">메모 (선택)</span><textarea name="memo" rows="2" maxlength="300">${esc(e?.memo)}</textarea></div>
     <div class="field"><span class="label">작성자</span>
       <div class="chips">${state.members
-        .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" ${by === m.id ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
+        .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" ${by === m.id ? 'checked' : ''} ${e ? '' : 'required'}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
         .join('')}</div></div>
     <div class="form-actions">
       ${e ? `<button type="button" class="btn danger" data-act="event-delete" data-id="${e.id}">삭제</button>` : ''}

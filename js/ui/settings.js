@@ -182,8 +182,10 @@ async function renderNotify() {
              <button class="btn primary wide" data-act="notify-on">알림 켜기</button>`;
     html = `${status}
       <p class="note" style="margin-top:16px">· 나에게 배정된 할 일(온 가족 할 일 포함)이 새로 생기면 알려줘요.<br>
-      · 내가 만든 할 일은 알림이 안 와요.<br>
-      · 할 일을 만드는 기기도 "이 기기는 누구 거예요?"가 정해져 있어야 상대에게 알림이 가요.</p>`;
+      · 새 일정이나 외출/여행이 등록되면 온 가족에게 알려줘요.<br>
+      · 내가 만든 것은 알림이 안 와요.<br>
+      · 할 일을 만드는 기기도 "이 기기는 누구 거예요?"가 정해져 있어야 상대에게 알림이 가요.<br>
+      · 앱 업데이트 후에도 알림은 유지돼요. 단, 브라우저에서 <b>사이트 데이터를 지우면</b> 알림과 "이 기기는 누구 거예요?"가 같이 꺼져요.</p>`;
   }
   box.innerHTML = html;
 }

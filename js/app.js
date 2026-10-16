@@ -123,7 +123,18 @@ function showMessage(html) {
 
 async function boot() {
   window.__appReady = true; // 모든 파일을 정상적으로 불러왔다는 표시 (index.html 의 점검 화면용)
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    // 새 버전이 받아지면 한 번 자동으로 새로고침 → 업데이트할 때 사이트 데이터를 지울 필요가 없어요 (알림·설정 유지)
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      const sheetOpen = document.getElementById('sheet-root')?.classList.contains('open');
+      if (!hadController || reloading || sheetOpen) return; // 처음 설치이거나 입력 중이면 건너뜀
+      reloading = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
 
   if (configError) {
     return showMessage(`<div class="gate-logo">🛠️</div><h1>Supabase 주소를 확인해주세요</h1>

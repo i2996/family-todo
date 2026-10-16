@@ -10,6 +10,7 @@ import * as eventsDb from './data/events.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
+import { prefs } from './prefs.js';
 
 const sid = () => state.space.id;
 
@@ -238,9 +239,19 @@ export const pushSupported = pushDb.pushSupported;
 export const pushConfigured = pushDb.pushConfigured;
 export const pushPermission = pushDb.pushPermission;
 export const pushSubscribed = async () => !!(await pushDb.currentSubscription());
-export const enablePush = (memberId) => pushDb.enablePush(sid(), memberId);
-export const disablePush = () => pushDb.disablePush();
-export const syncPush = (memberId) => pushDb.syncPush(sid(), memberId);
+export async function enablePush(memberId) {
+  await pushDb.enablePush(sid(), memberId);
+  prefs.setPushWanted(true); // 켜둔 기기는 구독이 사라져도 자동으로 다시 구독
+}
+export async function disablePush() {
+  prefs.setPushWanted(false); // 직접 끈 기기는 자동으로 다시 켜지지 않게
+  await pushDb.disablePush();
+}
+export async function syncPush(memberId) {
+  const wanted = prefs.getPushWanted();
+  const r = await pushDb.syncPush(sid(), memberId, wanted === true);
+  if (wanted === null && r === 'existing') prefs.setPushWanted(true); // 이미 켜져 있던 기기는 '켬'으로 기억
+}
 export const testPush = () => pushDb.showLocalTest();
 
 /* ---------- 백업 / 복원 ---------- */
