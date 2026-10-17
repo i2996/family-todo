@@ -11,7 +11,8 @@ import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
 import { prefs } from './prefs.js';
-import { addDays } from './logic/dates.js';
+import { addDays, todayISO, shortDate } from './logic/dates.js';
+import * as F from './logic/food.js';
 
 const sid = () => state.space.id;
 
@@ -194,10 +195,12 @@ export async function addFoodItem(p) {
 export async function saveFoodItem(id, p) {
   const row = await foodDb.updateFood(id, p);
   set({ foodItems: state.foodItems.map((i) => (i.id === id ? row : i)) });
+  afterPlanChange(); // 보관(냉장/냉동)이 바뀌면 해동 할 일도 달라짐
 }
 export async function removeFoodItem(id) {
   await foodDb.deleteFood(id);
   set({ foodItems: state.foodItems.filter((i) => i.id !== id), foodPlan: state.foodPlan.filter((r) => r.item_id !== id) });
+  afterPlanChange();
 }
 /** '먹음' - 1끼/1개 줄이고, 0이 되면 목록에서 지운다. 반환: 'ok' | 'removed' */
 export async function eatFoodItem(id) {
@@ -244,6 +247,7 @@ export async function eatDay(date) {
     set(await loadFood());
     throw e;
   }
+  if (removedIds.length) afterPlanChange();
   return { count: rows.length, removed: removedIds.length };
 }
 
@@ -265,6 +269,56 @@ export async function undoEatDay(date) {
   }
   return rows.length;
 }
+
+/* ---------- 냉동 반찬 해동 → 부모 할 일 자동 등록 ---------- */
+const thawKey = (itemId, mealDate) => `thaw:${itemId}:${mealDate}`;
+/** food-thaw.sql 이 적용돼 있는지 (구성원 정보에 is_parent 칸이 있으면 적용된 것) */
+export const thawSupported = () => state.members.some((m) => 'is_parent' in m);
+export const hasParents = () => state.members.some((m) => m.is_parent);
+
+/**
+ * 식단에서 '다음 날 냉동 반찬이 있는 날'마다 "❄️ OO 냉장 해동" 할 일을 만든다 (담당: 부모, 부모 표시가 없으면 온 가족).
+ * 식단이 바뀌어 필요 없어진 해동 할 일은(아직 안 끝낸 것만) 지운다.
+ */
+export async function syncThawTasks() {
+  if (!state.space || !thawSupported()) return;
+  const today = todayISO();
+  const items = state.foodItems.filter((i) => i.kind === 'banchan');
+  const plan = F.resolvePlan(items, state.foodPlan, today, outDates());
+  const desired = new Map();
+  for (let i = 1; i < plan.length; i++) {
+    for (const dish of plan[i].dishes) {
+      if (!dish.frozen) continue;
+      desired.set(thawKey(dish.id, plan[i].date), {
+        title: `❄️ ${dish.name} 냉장 해동`,
+        task_date: plan[i - 1].date, // 먹기 전날에 냉장실로 옮기기
+        memo: `${shortDate(plan[i].date)} 식단에 쓸 냉동 반찬이에요`,
+      });
+    }
+  }
+  const existing = state.tasks.filter((t) => t.source_key && t.source_key.startsWith('thaw:'));
+  const have = new Set(existing.map((t) => t.source_key));
+  const stale = existing.filter((t) => !desired.has(t.source_key) && !t.done && t.task_date >= today);
+  const create = [...desired].filter(([k]) => !have.has(k));
+  if (!create.length && !stale.length) return;
+
+  const parents = state.members.filter((m) => m.is_parent).map((m) => m.id);
+  const me = state.members.some((m) => m.id === prefs.getDeviceMember()) ? prefs.getDeviceMember() : null;
+  if (create.length) {
+    await tasksDb.upsertAutoTasks(
+      sid(),
+      create.map(([source_key, v]) => ({
+        ...v,
+        source_key,
+        assignee_ids: parents, // 부모에게만 (알림도 담당자에게만 가요)
+        ...(pushDb.pushConfigured() ? { created_by: me } : {}),
+      }))
+    );
+  }
+  if (stale.length) await tasksDb.deleteTasks(stale.map((t) => t.id));
+  set({ tasks: await tasksDb.listTasks(sid()) });
+}
+const afterPlanChange = () => syncThawTasks().catch((e) => console.warn('해동 할 일 동기화 실패', e));
 
 /** 외식하는 날 모음 */
 export const outDates = () => new Set(state.foodDays.filter((d) => d.kind === 'out').map((d) => d.plan_date));
@@ -290,6 +344,7 @@ export async function postponeDay(date) {
     set(await loadFood());
     throw e;
   }
+  afterPlanChange();
   return { count: rows.length, target };
 }
 
@@ -314,6 +369,7 @@ export async function addPlanEntry(date, itemId) {
     set(await loadFood());
     throw e;
   }
+  afterPlanChange();
 }
 export async function removePlanEntry(itemId, date) {
   set({ foodPlan: state.foodPlan.filter((r) => !(r.item_id === itemId && r.plan_date === date)) });
@@ -323,6 +379,7 @@ export async function removePlanEntry(itemId, date) {
     set(await loadFood());
     throw e;
   }
+  afterPlanChange();
 }
 /** [from, to] 기간의 식단을 byKey({날짜: [itemId...]}) 로 통째로 교체 */
 export async function regeneratePlan(from, to, byKey) {
@@ -334,6 +391,7 @@ export async function regeneratePlan(from, to, byKey) {
       ...rows.map((r) => ({ ...r, space_id: sid() })),
     ],
   });
+  afterPlanChange();
 }
 
 /* ---------- 알림 (웹 푸시) ---------- */

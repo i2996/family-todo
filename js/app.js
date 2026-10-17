@@ -109,6 +109,7 @@ async function openSpace(spaceId) {
   unsubscribe = subscribeSpace(space.id, onRemoteChange);
   const dm = deviceMemberId();
   if (dm) A.syncPush(dm).catch(() => {}); // 알림을 켠 기기면 서버의 구독 정보를 최신으로
+  A.syncThawTasks().catch(() => {}); // 식단의 냉동 반찬 해동 할 일을 최신으로
 }
 
 // 폰을 다시 켜서 앱으로 돌아오면 최신 상태로 맞추고, 날짜가 바뀌었으면 화면도 갱신
