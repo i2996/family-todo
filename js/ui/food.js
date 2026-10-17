@@ -43,6 +43,14 @@ function banchanView(today) {
   const outSet = A.outDates();
   const plan = F.resolvePlan(items, state.foodPlan, today, outSet);
   const hasPlan = plan.some((d) => d.dishes.length);
+  const hasFrozen = items.some((i) => i.storage === 'frozen');
+  const thawNote = !hasFrozen
+    ? ''
+    : !A.thawSupported()
+      ? '<p class="food-note">냉동 반찬 해동을 부모 할 일로 자동 등록하려면 <b>supabase/food-thaw.sql</b> 을 실행해주세요.</p>'
+      : !A.hasParents()
+        ? '<p class="food-note">설정 → 가족 구성원에서 <b>부모</b>를 표시하면 냉동 반찬 해동 할 일이 부모에게만 가요. (지금은 온 가족 할 일로 등록돼요)</p>'
+        : '<p class="food-note">❄️ 냉동 반찬은 먹기 전날 "냉장 해동" 할 일이 부모에게 자동으로 등록돼요.</p>';
   const missed = F.missedItems(items, plan, today);
 
   const week = plan
@@ -90,6 +98,7 @@ function banchanView(today) {
   return `
   <div class="sec-head"><h2>이번 주 식단</h2><button class="chip sm" data-act="food-regen">${hasPlan ? '자동으로 다시 짜기' : '자동으로 짜기'}</button></div>
   ${hasPlan ? '' : '<p class="food-note">아직 이번 주 식단이 없어요. 위 버튼을 누르면 유통기한이 급한 반찬부터 알아서 나눠줘요.</p>'}
+  ${thawNote}
   <div class="food-week">${week}</div>
   ${missed.length ? `<p class="food-warn">참고: ${missed.map((m) => esc(m.name)).join(', ')}은(는) 이번 주 안에 유통기한이 끝나는데 아직 계획에 없어요.</p>` : ''}
 
