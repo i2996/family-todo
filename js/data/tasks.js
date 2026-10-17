@@ -33,3 +33,13 @@ export async function setOccurrenceDone(sid, taskId, date, done, doneBy = null) 
   }
   return unwrap(await supabase.from('task_completions').delete().eq('task_id', taskId).eq('occurrence_date', date));
 }
+
+/** 자동으로 만드는 할 일(source_key 로 구분): 이미 있으면 건너뜀 (여러 기기가 동시에 만들어도 중복 없음) */
+export const upsertAutoTasks = async (sid, rows) =>
+  unwrap(
+    await supabase
+      .from('tasks')
+      .upsert(rows.map((r) => ({ ...r, space_id: sid })), { onConflict: 'space_id,source_key', ignoreDuplicates: true })
+  );
+
+export const deleteTasks = async (ids) => unwrap(await supabase.from('tasks').delete().in('id', ids));

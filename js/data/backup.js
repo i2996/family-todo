@@ -72,7 +72,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
   const members = data.members.map((m, i) => {
     const id = crypto.randomUUID();
     memberMap.set(m.id, id);
-    return { id, space_id: sid, name: m.name, color: m.color || '#b9a4f0', sort_order: m.sort_order ?? i };
+    return { id, space_id: sid, name: m.name, color: m.color || '#b9a4f0', sort_order: m.sort_order ?? i, ...(m.is_parent ? { is_parent: true } : {}) };
   });
   const trips = (data.trips || []).map((t) => {
     const id = crypto.randomUUID();
@@ -94,6 +94,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
         'title', 'task_date', 'start_date', 'due_date', 'memo', 'repeat_type', 'repeat_days', 'repeat_end', 'done_at',
       ]),
       repeat_interval: t.repeat_interval || 1,
+      ...(t.source_key ? { source_key: t.source_key } : {}),
       done: !!t.done,
       assignee_ids: (Array.isArray(t.assignee_ids) ? t.assignee_ids : t.assignee_id ? [t.assignee_id] : [])
         .map((id) => memberMap.get(id))
