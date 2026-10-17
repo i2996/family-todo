@@ -7,6 +7,7 @@ import * as tasksDb from './data/tasks.js';
 import * as tripsDb from './data/trips.js';
 import * as foodDb from './data/food.js';
 import * as eventsDb from './data/events.js';
+import * as purchasesDb from './data/purchases.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
@@ -18,7 +19,7 @@ const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food, ev, days] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev, days, buy] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
@@ -26,8 +27,19 @@ export async function loadAll() {
     loadFood(),
     loadEvents(),
     loadDays(),
+    loadPurchases(),
   ]);
-  set({ members, trips, tasks, completions, ...food, ...ev, ...days });
+  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy });
+}
+
+/** 구매 목록 테이블(purchases.sql)이 없어도 나머지 앱은 정상 동작 */
+async function loadPurchases() {
+  try {
+    return { purchases: await purchasesDb.listPurchases(sid()), purchasesReady: true };
+  } catch (e) {
+    console.warn('구매 목록을 불러오지 못했어요 (supabase/purchases.sql 실행 필요)', e);
+    return { purchases: [], purchasesReady: false };
+  }
 }
 
 /** 외식 표시 테이블(food-outing.sql)이 없어도 식단은 정상 동작 */
@@ -72,6 +84,7 @@ export async function refresh(table) {
     case 'food_plan': return set(await loadFood());
     case 'events': return set(await loadEvents());
     case 'food_days': return set(await loadDays());
+    case 'purchases': return set(await loadPurchases());
     default: return loadAll();
   }
 }
@@ -109,6 +122,7 @@ export async function removeMember(id) {
     })),
     completions: state.completions.map((c) => (c.done_by === id ? { ...c, done_by: null } : c)),
     events: state.events.map((e) => (e.created_by === id ? { ...e, created_by: null } : e)),
+    purchases: state.purchases.map((p) => ({ ...p, requested_by: p.requested_by === id ? null : p.requested_by, decided_by: p.decided_by === id ? null : p.decided_by })),
   });
 }
 
@@ -171,6 +185,36 @@ export async function removeTrip(id, { deleteTasks }) {
       : state.tasks.map((t) => (t.trip_id === id ? { ...t, trip_id: null } : t)),
     tripId: state.tripId === id ? null : state.tripId,
   });
+}
+
+/** 화면만 다시 그리기 (구매 탭 전환 등) */
+export const refreshView = () => set();
+
+/* ---------- 구매 목록 ---------- */
+export async function requestPurchase(p) {
+  const row = await purchasesDb.insertPurchase(sid(), p);
+  set({ purchases: [...state.purchases, row] });
+  return row;
+}
+const patchPurchase = async (id, patch) => {
+  const prev = state.purchases;
+  set({ purchases: prev.map((x) => (x.id === id ? { ...x, ...patch } : x)) }); // 먼저 화면에 반영
+  try {
+    const row = await purchasesDb.updatePurchase(id, patch);
+    set({ purchases: state.purchases.map((x) => (x.id === id ? { ...x, ...row } : x)) });
+  } catch (e) {
+    set(await loadPurchases());
+    throw e;
+  }
+};
+/** 승인/반려 (status: 'approved' | 'rejected'). 요청한 사람에게 알림이 가요 */
+export const decidePurchase = (id, status, byMemberId) =>
+  patchPurchase(id, { status, decided_by: byMemberId, decided_at: new Date().toISOString() });
+/** 구매 완료 체크 / 되돌리기 */
+export const setPurchaseBought = (id, bought) => patchPurchase(id, { status: bought ? 'bought' : 'approved' });
+export async function removePurchase(id) {
+  await purchasesDb.deletePurchase(id);
+  set({ purchases: state.purchases.filter((x) => x.id !== id) });
 }
 
 /* ---------- 일정 ---------- */
@@ -418,6 +462,6 @@ export const testPush = () => pushDb.showLocalTest();
 export const exportBackup = () => backupDb.exportAll(state.space);
 export const downloadBackup = backupDb.downloadJson;
 export async function restoreBackup(data) {
-  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady });
+  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady, includePurchases: state.purchasesReady });
   await loadAll();
 }

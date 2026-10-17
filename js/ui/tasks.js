@@ -4,6 +4,7 @@ import { prefs } from '../prefs.js';
 import { buildTaskList, groupByDate, PERIODS, STATUSES } from '../logic/filters.js';
 import { todayISO } from '../logic/dates.js';
 import { taskRow, memberChips, deviceMemberId } from './components.js';
+import { renderBuyBox } from './purchases.js';
 
 /** 현재 적용되는 필터 (담당자는 기기별로 기억, 저장값이 없으면 이 기기 주인) */
 export function currentFilter() {
@@ -39,6 +40,7 @@ export function renderTasks() {
           .join('')
       : `<p class="empty big">${f.status === 'pending' ? '남은 할 일이 없어요 🎉' : '해당하는 할 일이 없어요'}</p>`
   }
+  ${renderBuyBox()}
   <button class="fab" data-act="add-task" aria-label="할 일 추가">+</button>`;
 }
 

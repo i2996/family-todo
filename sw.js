@@ -1,13 +1,13 @@
 // 서비스 워커: 앱 파일을 캐시해서 설치/빠른 실행 지원. Supabase 통신은 절대 가로채지 않음.
-const VERSION = 'family-todo-v13';
+const VERSION = 'family-todo-v14';
 const SHELL = [
-  './', 'index.html', 'manifest.webmanifest', 'css/style.css', 'css/schedule.css', 'css/settings.css', 'css/food.css', 'icons/icon.svg',
+  './', 'index.html', 'manifest.webmanifest', 'css/style.css', 'css/schedule.css', 'css/settings.css', 'css/food.css', 'css/purchases.css', 'icons/icon.svg',
   'js/app.js', 'js/config.js', 'js/prefs.js', 'js/fonts.js', 'js/state.js', 'js/actions.js',
   'js/data/client.js', 'js/data/spaces.js', 'js/data/members.js', 'js/data/tasks.js', 'js/data/trips.js',
-  'js/data/realtime.js', 'js/data/backup.js', 'js/data/food.js', 'js/data/push.js', 'js/data/events.js',
-  'js/logic/dates.js', 'js/logic/assign.js', 'js/logic/schedule.js', 'js/logic/recurrence.js', 'js/logic/filters.js', 'js/logic/share.js', 'js/logic/food.js',
+  'js/data/realtime.js', 'js/data/backup.js', 'js/data/food.js', 'js/data/push.js', 'js/data/events.js', 'js/data/purchases.js',
+  'js/logic/dates.js', 'js/logic/assign.js', 'js/logic/schedule.js', 'js/logic/purchases.js', 'js/logic/recurrence.js', 'js/logic/filters.js', 'js/logic/share.js', 'js/logic/food.js',
   'js/ui/components.js', 'js/ui/sheet.js', 'js/ui/layout.js', 'js/ui/home.js', 'js/ui/tasks.js',
-  'js/ui/trips.js', 'js/ui/taskForm.js', 'js/ui/settings.js', 'js/ui/gate.js', 'js/ui/food.js', 'js/ui/schedule.js', 'js/ui/theme.js',
+  'js/ui/trips.js', 'js/ui/taskForm.js', 'js/ui/settings.js', 'js/ui/gate.js', 'js/ui/food.js', 'js/ui/schedule.js', 'js/ui/theme.js', 'js/ui/purchases.js',
 ];
 const CACHEABLE_HOSTS = ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
