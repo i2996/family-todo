@@ -1,7 +1,12 @@
 // 알림 대상/문구 계산 (순수 함수 - Deno 와 Node 어디서나 테스트 가능)
 
 /** 새 할 일 알림을 받을 구성원 id 목록 */
-export function pickRecipients({ kind, task, added, memberIds }) {
+export function pickRecipients({ kind, task, added, memberIds, members = [] }) {
+  // 새 구매 요청: 승인 권한이 있는 사람에게 (권한자가 아무도 없으면 온 가족), 요청한 본인은 제외
+  if (kind === 'purchase_request') {
+    const approvers = members.filter((m) => m.can_approve).map((m) => m.id);
+    return (approvers.length ? approvers : memberIds).filter((id) => id !== task.requested_by);
+  }
   // 구매 요청이 승인/반려되면: 요청한 사람에게만 (본인이 직접 처리한 경우는 제외)
   if (kind === 'purchase') {
     const to = task.requested_by;
@@ -32,6 +37,14 @@ export function dateLabel(iso, now = new Date()) {
 
 export function buildMessage({ kind, task, creatorName, now = new Date() }) {
   const by = creatorName ? `\n등록: ${creatorName}` : '';
+  if (kind === 'purchase_request') {
+    const cat = { supplies: '생필품', snack: '간식', grocery: '식재료', etc: '기타' }[task.category] || '기타';
+    return {
+      title: '구매 요청이 왔어요 🛒',
+      body: `${task.title} · ${cat}${task.memo ? ` (${task.memo})` : ''}${creatorName ? `\n요청: ${creatorName}` : ''}`,
+      tag: `purchase-req-${task.id}`,
+    };
+  }
   if (kind === 'purchase') {
     const cat = { supplies: '생필품', snack: '간식', grocery: '식재료', etc: '기타' }[task.category] || '기타';
     const ok = task.status === 'approved';

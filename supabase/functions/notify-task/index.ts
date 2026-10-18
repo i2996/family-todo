@@ -17,10 +17,10 @@ Deno.serve(async (req) => {
   if (!task || !task.space_id) return json({ ok: false, error: 'no task' }, 400);
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
-  const { data: members, error: mErr } = await supabase.from('members').select('id,name').eq('space_id', task.space_id);
+  const { data: members, error: mErr } = await supabase.from('members').select('*').eq('space_id', task.space_id);
   if (mErr) return json({ ok: false, error: mErr.message }, 500);
 
-  const recipients = pickRecipients({ kind: body.kind, task, added: body.added, memberIds: members.map((m) => m.id) });
+  const recipients = pickRecipients({ kind: body.kind, task, added: body.added, memberIds: members.map((m) => m.id), members });
   if (!recipients.length) return json({ ok: true, sent: 0, note: 'no recipients' });
 
   const { data: subs, error: sErr } = await supabase
@@ -36,8 +36,9 @@ Deno.serve(async (req) => {
     Deno.env.get('VAPID_PUBLIC_KEY'),
     Deno.env.get('VAPID_PRIVATE_KEY'),
   );
-  // 구매 요청 알림은 '처리한 사람(decided_by)', 나머지는 '만든 사람(created_by)'을 문구에 표시
-  const creator = members.find((m) => m.id === (body.kind === 'purchase' ? task.decided_by : task.created_by));
+  // 문구에 표시할 사람: 승인/반려 알림은 처리한 사람, 새 구매 요청은 요청한 사람, 나머지는 만든 사람
+  const actorId = body.kind === 'purchase' ? task.decided_by : body.kind === 'purchase_request' ? task.requested_by : task.created_by;
+  const creator = members.find((m) => m.id === actorId);
   const payload = JSON.stringify(buildMessage({ kind: body.kind, task, creatorName: creator ? creator.name : null }));
 
   let sent = 0;
