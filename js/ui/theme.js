@@ -18,7 +18,7 @@ export function fontSummary() {
 }
 
 const quote = (n) => `'${String(n).replace(/'/g, '')}'`;
-const stackOf = (name) => `${quote(name)}, ${STACK_TAIL}`;
+const stackOf = (name) => name === 'system-ui' ? `system-ui, ${STACK_TAIL}` : `${quote(name)}, ${STACK_TAIL}`;
 export const fontStack = (f) => (f && f.name ? stackOf(f.name) : 'inherit');
 
 const formatOf = (url) => {
