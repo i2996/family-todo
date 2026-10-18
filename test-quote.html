@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .q { font-family: "system-ui", "Comic Sans MS"; }
+  .uq { font-family: system-ui, "Comic Sans MS"; }
+</style>
+</head>
+<body>
+  <div id="d1" class="q">Hello 안녕</div>
+  <div id="d2" class="uq">Hello 안녕</div>
+  <script>
+    console.log(getComputedStyle(document.getElementById('d1')).fontFamily);
+    console.log(getComputedStyle(document.getElementById('d2')).fontFamily);
+  </script>
+</body>
+</html>
