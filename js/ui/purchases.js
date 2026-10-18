@@ -64,7 +64,7 @@ export function renderBuyBox() {
   return `<section class="buy-box">
     <div class="buy-head"><h2>🛒 구매 목록</h2><button class="chip sm buy-add" data-act="buy-add">+ 구매 요청</button></div>
     <div class="seg wide" role="tablist">
-      <button class="${buyTab === 'planned' ? 'on' : ''}" data-act="buy-tab" data-v="planned">구매예정 ${planned.length}</button>
+      <button class="${buyTab === 'planned' ? 'on' : ''}" data-act="buy-tab" data-v="planned">구매 예정 ${planned.length}</button>
       <button class="${buyTab === 'pending' ? 'on' : ''}" data-act="buy-tab" data-v="pending">승인 대기 ${state.purchases.filter((p) => p.status === 'pending').length}</button>
     </div>
     ${noApprover && buyTab === 'pending' ? '<p class="note">승인 권한이 있는 사람이 아직 없어요. 설정 → 가족 구성원 → 권한에서 <b>구매 요청 승인</b>을 체크해주세요. (지금은 누구나 승인할 수 있어요)</p>' : ''}
