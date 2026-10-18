@@ -106,7 +106,7 @@ export function openMembers() {
     body: `<ul class="member-list">
       ${state.members
         .map(
-          (m) => `<li><i class="dot lg" style="--mc:${esc(m.color)}"></i><b>${esc(m.name)}</b>${m.is_parent ? '<span class="badge">부모</span>' : ''}
+          (m) => `<li><i class="dot lg" style="--mc:${esc(m.color)}"></i><b>${esc(m.name)}</b>${m.can_thaw ? '<span class="badge">해동</span>' : ''}${m.can_approve ? '<span class="badge">승인</span>' : ''}
             <button class="chip sm" data-act="member-edit" data-id="${m.id}">수정</button></li>`
         )
         .join('') || '<li class="empty">아직 구성원이 없어요</li>'}
@@ -130,8 +130,9 @@ export function openMemberForm(member = null) {
           <label class="swatch custom" title="직접 고르기">+<input type="color" value="${esc(color)}" data-change="member-color"></label>
         </div>
       </div>
-      <div class="field"><label class="chip pick"><input type="checkbox" name="is_parent" ${m?.is_parent ? 'checked' : ''}><span>👪 부모</span></label>
-        <p class="note" style="margin:6px 0 0">냉동 반찬 해동처럼 부모만 할 일이 부모에게만 배정되고 알림도 부모에게만 가요.</p></div>
+      <div class="field"><span class="label">권한</span>
+        <label class="perm"><input type="checkbox" name="can_thaw" ${m?.can_thaw ? 'checked' : ''}><span><b>해동 알림 받기</b><small>냉동 반찬 해동 할 일과 알림이 이 사람에게만 가요</small></span></label>
+        <label class="perm"><input type="checkbox" name="can_approve" ${m?.can_approve ? 'checked' : ''}><span><b>구매 요청 승인</b><small>구매 목록의 요청을 승인·반려할 수 있어요</small></span></label></div>
       <div class="form-actions">
         ${m ? `<button type="button" class="btn danger" data-act="member-delete" data-id="${m.id}">삭제</button>` : ''}
         <button type="submit" class="btn primary">${m ? '저장' : '추가'}</button>
@@ -386,14 +387,15 @@ export const forms = {
     const name = f.elements.name.value.trim();
     if (!name) return toast('이름을 입력해주세요');
     const p = { name, color: f.elements.color.value };
-    const parent = f.elements.is_parent.checked;
-    if (parent || (f.dataset.id && 'is_parent' in (memberById(f.dataset.id) || {}))) p.is_parent = parent; // food-thaw.sql 을 안 돌렸으면 건드리지 않음
+    const thaw = f.elements.can_thaw.checked;
+    const approve = f.elements.can_approve.checked;
+    if (thaw || approve || state.members.some((x) => 'can_thaw' in x)) Object.assign(p, { can_thaw: thaw, can_approve: approve }); // member-perms.sql 을 안 돌렸으면 건드리지 않음
     try {
       if (f.dataset.id) await A.saveMember(f.dataset.id, p);
       else await A.addMember(p);
       openMembers();
     } catch (e) {
-      toast(String(e && e.message).includes('is_parent') ? '먼저 supabase/food-thaw.sql 을 실행해주세요' : errMsg(e));
+      toast(/can_thaw|can_approve/.test(String(e && e.message)) ? '먼저 supabase/member-perms.sql 을 실행해주세요' : errMsg(e));
     }
   },
   'space-name': async (f) => {

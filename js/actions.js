@@ -314,14 +314,14 @@ export async function undoEatDay(date) {
   return rows.length;
 }
 
-/* ---------- 냉동 반찬 해동 → 부모 할 일 자동 등록 ---------- */
+/* ---------- 냉동 반찬 해동 → '해동 알림 받기' 권한자에게 할 일 자동 등록 ---------- */
 const thawKey = (itemId, mealDate) => `thaw:${itemId}:${mealDate}`;
-/** food-thaw.sql 이 적용돼 있는지 (구성원 정보에 is_parent 칸이 있으면 적용된 것) */
-export const thawSupported = () => state.members.some((m) => 'is_parent' in m);
-export const hasParents = () => state.members.some((m) => m.is_parent);
+/** member-perms.sql 이 적용돼 있는지 (구성원 정보에 can_thaw 칸이 있으면 적용된 것) */
+export const thawSupported = () => state.members.some((m) => 'can_thaw' in m);
+export const hasThawers = () => state.members.some((m) => m.can_thaw);
 
 /**
- * 식단에서 '다음 날 냉동 반찬이 있는 날'마다 "❄️ OO 냉장 해동" 할 일을 만든다 (담당: 부모, 부모 표시가 없으면 온 가족).
+ * 식단에서 '다음 날 냉동 반찬이 있는 날'마다 "❄️ OO 냉장 해동" 할 일을 만든다 (담당: '해동 알림 받기' 권한자, 아무도 없으면 온 가족).
  * 식단이 바뀌어 필요 없어진 해동 할 일은(아직 안 끝낸 것만) 지운다.
  */
 export async function syncThawTasks() {
@@ -346,7 +346,7 @@ export async function syncThawTasks() {
   const create = [...desired].filter(([k]) => !have.has(k));
   if (!create.length && !stale.length) return;
 
-  const parents = state.members.filter((m) => m.is_parent).map((m) => m.id);
+  const thawers = state.members.filter((m) => m.can_thaw).map((m) => m.id);
   const me = state.members.some((m) => m.id === prefs.getDeviceMember()) ? prefs.getDeviceMember() : null;
   if (create.length) {
     await tasksDb.upsertAutoTasks(
@@ -354,7 +354,7 @@ export async function syncThawTasks() {
       create.map(([source_key, v]) => ({
         ...v,
         source_key,
-        assignee_ids: parents, // 부모에게만 (알림도 담당자에게만 가요)
+        assignee_ids: thawers, // 권한자에게만 (알림도 담당자에게만 가요)
         ...(pushDb.pushConfigured() ? { created_by: me } : {}),
       }))
     );

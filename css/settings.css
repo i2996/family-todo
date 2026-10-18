@@ -18,3 +18,13 @@
 .font-check { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--accent-d); font-size: 22px; }
 
 .font-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 9px; font-style: normal; font-size: 11px; background: var(--accent); color: var(--ink); }
+
+/* 구성원 권한 체크 */
+.perm { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 14px; background: #fff; cursor: pointer; }
+.perm + .perm { margin-top: 8px; }
+.perm input { width: 22px; height: 22px; margin: 2px 0 0; flex: none; accent-color: var(--accent-d); }
+.perm span { display: flex; flex-direction: column; }
+.perm b { font-weight: 400; font-size: 16px; }
+.perm small { color: var(--muted); }
+.perm:has(input:checked) { border-color: var(--accent-d); background: var(--accent-soft); }
+.member-list .badge { margin-left: 2px; }

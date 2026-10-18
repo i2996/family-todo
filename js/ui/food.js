@@ -47,10 +47,10 @@ function banchanView(today) {
   const thawNote = !hasFrozen
     ? ''
     : !A.thawSupported()
-      ? '<p class="food-note">냉동 반찬 해동을 부모 할 일로 자동 등록하려면 <b>supabase/food-thaw.sql</b> 을 실행해주세요.</p>'
-      : !A.hasParents()
-        ? '<p class="food-note">설정 → 가족 구성원에서 <b>부모</b>를 표시하면 냉동 반찬 해동 할 일이 부모에게만 가요. (지금은 온 가족 할 일로 등록돼요)</p>'
-        : '<p class="food-note">❄️ 냉동 반찬은 먹기 전날 "냉장 해동" 할 일이 부모에게 자동으로 등록돼요.</p>';
+      ? '<p class="food-note">냉동 반찬 해동 할 일을 자동 등록하려면 <b>supabase/member-perms.sql</b> 을 실행해주세요.</p>'
+      : !A.hasThawers()
+        ? '<p class="food-note">설정 → 가족 구성원 → 권한에서 <b>해동 알림 받기</b>를 체크하면 냉동 반찬 해동 할 일이 그 사람에게만 가요. (지금은 온 가족 할 일로 등록돼요)</p>'
+        : '<p class="food-note">❄️ 냉동 반찬은 먹기 전날 "냉장 해동" 할 일이 <b>해동 알림 받기</b> 권한자에게 자동으로 등록돼요.</p>';
   const missed = F.missedItems(items, plan, today);
 
   const week = plan

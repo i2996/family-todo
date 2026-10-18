@@ -49,7 +49,7 @@ export function renderBuyBox() {
   const planned = state.purchases.filter((p) => p.status === 'approved');
   const bought = state.purchases.filter((p) => p.status === 'bought');
   const pending = state.purchases.filter((p) => p.status === 'pending' || p.status === 'rejected');
-  const noParent = !state.members.some((m) => m.is_parent);
+  const noApprover = !state.members.some((m) => m.can_approve);
 
   const list = buyTab === 'planned' ? planned : pending;
   const groups = groupByCategory(list)
@@ -64,10 +64,10 @@ export function renderBuyBox() {
   return `<section class="buy-box">
     <div class="buy-head"><h2>🛒 구매 목록</h2><button class="chip sm buy-add" data-act="buy-add">+ 구매 요청</button></div>
     <div class="seg wide" role="tablist">
-      <button class="${buyTab === 'planned' ? 'on' : ''}" data-act="buy-tab" data-v="planned">구매 예정 ${planned.length}</button>
+      <button class="${buyTab === 'planned' ? 'on' : ''}" data-act="buy-tab" data-v="planned">구매예정 ${planned.length}</button>
       <button class="${buyTab === 'pending' ? 'on' : ''}" data-act="buy-tab" data-v="pending">승인 대기 ${state.purchases.filter((p) => p.status === 'pending').length}</button>
     </div>
-    ${noParent && buyTab === 'pending' ? '<p class="note">승인은 부모만 할 수 있어요. 설정 → 가족 구성원에서 <b>부모</b>를 표시해주세요. (지금은 누구나 승인할 수 있어요)</p>' : ''}
+    ${noApprover && buyTab === 'pending' ? '<p class="note">승인 권한이 있는 사람이 아직 없어요. 설정 → 가족 구성원 → 권한에서 <b>구매 요청 승인</b>을 체크해주세요. (지금은 누구나 승인할 수 있어요)</p>' : ''}
     ${groups}
     ${buyTab === 'planned' && bought.length ? `<details class="buy-done"><summary>구매 완료 ${bought.length}개</summary><ul class="buy-list">${bought.map((p) => plannedRow(p, true)).join('')}</ul></details>` : ''}
   </section>`;
@@ -88,7 +88,7 @@ export function openBuyForm() {
       <div class="field"><span class="label">요청자</span><div class="chips">${state.members
         .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" ${me === m.id ? 'checked' : ''} required><span><i class="dot"></i>${esc(m.name)}</span></label>`)
         .join('')}</div></div>
-      <p class="note">부모가 승인하면 구매예정으로 옮겨져요. 부모가 요청하면 바로 구매예정에 올라가요.</p>
+      <p class="note">구매 요청 승인 권한이 있는 사람이 승인하면 구매예정으로 옮겨져요. 권한이 있는 사람이 요청하면 바로 구매예정에 올라가요.</p>
       <div class="form-actions"><button type="submit" class="btn primary">요청하기</button></div>
     </form>`,
     onMount: (el) => setTimeout(() => el.querySelector('[name=title]').focus(), 60),
@@ -97,7 +97,7 @@ export function openBuyForm() {
 
 const guardApprove = () => {
   if (canApprove(state.members, deviceMemberId())) return true;
-  toast('승인은 부모만 할 수 있어요');
+  toast('승인 권한이 없어요. (구성원 설정의 "구매 요청 승인")');
   return false;
 };
 const hint = (e) => (String(e && e.message).includes('purchases') ? '먼저 supabase/purchases.sql 을 실행해주세요' : errMsg(e));
@@ -159,17 +159,17 @@ export const forms = {
     const by = fd.get('by');
     if (!title) return toast('무엇을 사야 하는지 적어주세요');
     if (!by) return toast('요청자를 골라주세요');
-    const isParent = !!memberById(by)?.is_parent;
+    const autoApprove = !!memberById(by)?.can_approve; // 승인 권한이 있는 사람의 요청은 바로 구매예정
     const p = { title, category: fd.get('category'), memo: (fd.get('memo') || '').trim() || null, requested_by: by };
-    if (isParent) Object.assign(p, { status: 'approved', decided_by: by, decided_at: new Date().toISOString() }); // 부모 요청은 바로 구매예정
+    if (autoApprove) Object.assign(p, { status: 'approved', decided_by: by, decided_at: new Date().toISOString() });
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
     try {
       await A.requestPurchase(p);
-      buyTab = isParent ? 'planned' : 'pending';
+      buyTab = autoApprove ? 'planned' : 'pending';
       closeSheet();
       A.refreshView();
-      toast(isParent ? '구매예정에 올렸어요' : '요청했어요. 부모가 승인하면 구매예정으로 옮겨져요');
+      toast(autoApprove ? '구매예정에 올렸어요' : '요청했어요. 승인되면 구매예정으로 옮겨져요');
     } catch (e) {
       btn.disabled = false;
       toast(hint(e));

@@ -80,7 +80,9 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
   const members = data.members.map((m, i) => {
     const id = crypto.randomUUID();
     memberMap.set(m.id, id);
-    return { id, space_id: sid, name: m.name, color: m.color || '#b9a4f0', sort_order: m.sort_order ?? i, ...(m.is_parent ? { is_parent: true } : {}) };
+    const thaw = m.can_thaw ?? m.is_parent; // 예전 백업의 '부모' 표시는 두 권한으로 이어받음
+    const approve = m.can_approve ?? m.is_parent;
+    return { id, space_id: sid, name: m.name, color: m.color || '#b9a4f0', sort_order: m.sort_order ?? i, ...(thaw ? { can_thaw: true } : {}), ...(approve ? { can_approve: true } : {}) };
   });
   const trips = (data.trips || []).map((t) => {
     const id = crypto.randomUUID();
