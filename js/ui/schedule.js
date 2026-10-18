@@ -4,6 +4,7 @@ import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId, NEUTRAL } from './components.js';
 import { toItems, onDate, byDateMap } from '../logic/schedule.js';
+import { renderPlanBox } from './plans.js';
 import { todayISO, addDays, parts, pad, startOfWeekSun, eachDay, KO_DOW, longDate, labelDate, shortRange } from '../logic/dates.js';
 
 const TRIP_COLOR = '#8dd0b5';
@@ -83,6 +84,7 @@ export function renderSchedule() {
 
   <div class="sec-head" style="margin-top:20px"><h2>${labelDate(view.selected, today)} 일정</h2><span class="muted">${list.length}개</span></div>
   ${list.length ? `<ul class="sch-list">${list.map((i) => scheduleRow(i)).join('')}</ul>` : '<p class="empty">이 날은 일정이 없어요</p>'}
+  ${renderPlanBox()}
   <button class="fab" data-act="add-event" aria-label="일정 추가">+</button>`;
 }
 
@@ -99,7 +101,7 @@ export function openEventForm({ event = null, date = null } = {}) {
           <label class="chip pick"><input type="radio" name="kind" value="event" data-change="event-kind" checked><span>📌 일정</span></label>
           <label class="chip pick"><input type="radio" name="kind" value="trip" data-change="event-kind"><span>🏕️ 외출·여행</span></label>
         </div>
-        <small class="kind-hint" hidden>외출/여행은 만든 뒤에 열리는 화면에서 준비할 일을 연결할 수 있어요.</small></div>`
+        <small class="kind-hint">외출/여행은 만든 뒤에 열리는 화면에서 준비할 일을 연결할 수 있어요.</small></div>`
     }
     <input class="big-input" name="title" required maxlength="80" placeholder="무슨 일정인가요? (예: 학부모 상담)" value="${esc(e?.title)}">
     <div class="grid2">
@@ -184,7 +186,7 @@ export const changes = {
     const f = el.closest('form');
     const trip = f.elements.kind.value === 'trip';
     f.querySelector('.time-field').hidden = trip; // 외출/여행에는 시간 입력 없음
-    f.querySelector('.kind-hint').hidden = !trip;
+    f.querySelector('.kind-hint').classList.toggle('on', trip); // 안내 글자는 자리를 항상 차지해서 간격이 일정함
   },
 };
 
