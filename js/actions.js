@@ -8,6 +8,7 @@ import * as tripsDb from './data/trips.js';
 import * as foodDb from './data/food.js';
 import * as eventsDb from './data/events.js';
 import * as purchasesDb from './data/purchases.js';
+import * as plansDb from './data/plans.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
@@ -19,7 +20,7 @@ const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food, ev, days, buy] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev, days, buy, plan] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
@@ -28,8 +29,19 @@ export async function loadAll() {
     loadEvents(),
     loadDays(),
     loadPurchases(),
+    loadPlans(),
   ]);
-  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy });
+  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan });
+}
+
+/** 계획 테이블(plans.sql)이 없어도 나머지 앱은 정상 동작 */
+async function loadPlans() {
+  try {
+    return { plans: await plansDb.listPlans(sid()), plansReady: true };
+  } catch (e) {
+    console.warn('계획 목록을 불러오지 못했어요 (supabase/plans.sql 실행 필요)', e);
+    return { plans: [], plansReady: false };
+  }
 }
 
 /** 구매 목록 테이블(purchases.sql)이 없어도 나머지 앱은 정상 동작 */
@@ -85,6 +97,7 @@ export async function refresh(table) {
     case 'events': return set(await loadEvents());
     case 'food_days': return set(await loadDays());
     case 'purchases': return set(await loadPurchases());
+    case 'trip_plans': return set(await loadPlans());
     default: return loadAll();
   }
 }
@@ -122,6 +135,7 @@ export async function removeMember(id) {
     })),
     completions: state.completions.map((c) => (c.done_by === id ? { ...c, done_by: null } : c)),
     events: state.events.map((e) => (e.created_by === id ? { ...e, created_by: null } : e)),
+    plans: state.plans.map((p) => (p.created_by === id ? { ...p, created_by: null } : p)),
     purchases: state.purchases.map((p) => ({ ...p, requested_by: p.requested_by === id ? null : p.requested_by, decided_by: p.decided_by === id ? null : p.decided_by })),
   });
 }
@@ -189,6 +203,20 @@ export async function removeTrip(id, { deleteTasks }) {
 
 /** 화면만 다시 그리기 (구매 탭 전환 등) */
 export const refreshView = () => set();
+
+/* ---------- 계획 (날짜 미정 외출·여행) ---------- */
+export async function addPlan(p) {
+  const row = await plansDb.insertPlan(sid(), p);
+  set({ plans: [...state.plans, row] });
+}
+export async function savePlan(id, p) {
+  const row = await plansDb.updatePlan(id, p);
+  set({ plans: state.plans.map((x) => (x.id === id ? row : x)) });
+}
+export async function removePlan(id) {
+  await plansDb.deletePlan(id);
+  set({ plans: state.plans.filter((x) => x.id !== id) });
+}
 
 /* ---------- 구매 목록 ---------- */
 export async function requestPurchase(p) {
@@ -462,6 +490,6 @@ export const testPush = () => pushDb.showLocalTest();
 export const exportBackup = () => backupDb.exportAll(state.space);
 export const downloadBackup = backupDb.downloadJson;
 export async function restoreBackup(data) {
-  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady, includePurchases: state.purchasesReady });
+  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady, includePurchases: state.purchasesReady, includePlans: state.plansReady });
   await loadAll();
 }
