@@ -6,6 +6,7 @@ import * as tripsDb from './trips.js';
 import * as foodDb from './food.js';
 import * as eventsDb from './events.js';
 import * as purchasesDb from './purchases.js';
+import * as plansDb from './plans.js';
 
 export async function exportAll(space) {
   const sid = space.id;
@@ -33,6 +34,12 @@ export async function exportAll(space) {
   } catch {
     /* events.sql 을 아직 안 돌린 경우: 일정은 빼고 백업 */
   }
+  let plan = {};
+  try {
+    plan = { trip_plans: await plansDb.listPlans(sid) };
+  } catch {
+    /* plans.sql 을 아직 안 돌린 경우 */
+  }
   let buy = {};
   try {
     buy = { purchases: await purchasesDb.listPurchases(sid) };
@@ -51,6 +58,7 @@ export async function exportAll(space) {
     ...food,
     ...ev,
     ...buy,
+    ...plan,
   };
 }
 
@@ -69,7 +77,7 @@ export function downloadJson(obj, filename) {
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k] ?? null]));
 
 /** 현재 공간의 데이터를 모두 지우고 백업 내용으로 교체 (id 는 새로 발급해서 충돌 방지) */
-export async function importAll(sid, data, { includeFood = false, includeEvents = false, includePurchases = false } = {}) {
+export async function importAll(sid, data, { includeFood = false, includeEvents = false, includePurchases = false, includePlans = false } = {}) {
   if (!data || data.app !== 'family-todo' || !Array.isArray(data.members) || !Array.isArray(data.tasks)) {
     throw new Error('가족 할 일 백업 파일이 아니에요.');
   }
@@ -199,5 +207,18 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
     }));
     unwrap(await supabase.from('purchases').delete().eq('space_id', sid));
     if (rows.length) unwrap(await supabase.from('purchases').insert(rows));
+  }
+
+  // 계획(날짜 미정 외출·여행): 백업에 들어 있을 때만 교체
+  if (includePlans && Array.isArray(data.trip_plans)) {
+    const rows = data.trip_plans.map((p) => ({
+      id: crypto.randomUUID(),
+      space_id: sid,
+      title: p.title,
+      memo: p.memo ?? null,
+      created_by: memberMap.get(p.created_by) || null,
+    }));
+    unwrap(await supabase.from('trip_plans').delete().eq('space_id', sid));
+    if (rows.length) unwrap(await supabase.from('trip_plans').insert(rows));
   }
 }
