@@ -5,8 +5,21 @@ import { prefs } from '../prefs.js';
 const STACK_TAIL = `'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif`;
 const loaded = new Set();
 
-export const listFonts = () => FONTS;
-export const fontById = (id) => FONTS.find((f) => f.id === id) || FONTS[0];
+// 기기에 기본으로 들어 있는 글꼴(시스템 글꼴). fonts.js 를 건드리지 않아도 목록에 항상 들어가요.
+// (fonts.js 에 id 가 'system' 인 항목을 직접 만들면 그걸 우선 사용)
+const SYSTEM_FONT = {
+  id: 'system',
+  label: '시스템 글꼴 (기기 기본)',
+  stack: "system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
+};
+/** '기본' 바로 아래에 시스템 글꼴을 끼워 넣은 전체 글꼴 목록 */
+function allFonts() {
+  if (FONTS.some((f) => f.id === SYSTEM_FONT.id)) return FONTS;
+  const i = FONTS.findIndex((f) => f.id === 'default');
+  return [...FONTS.slice(0, i + 1), SYSTEM_FONT, ...FONTS.slice(i + 1)];
+}
+export const listFonts = () => allFonts();
+export const fontById = (id) => allFonts().find((f) => f.id === id) || allFonts()[0];
 /** 지금 쓰는 글꼴: { body: 내용, head: 제목 } */
 export const currentFonts = () => {
   const { body, head } = prefs.getFonts();
@@ -19,7 +32,9 @@ export function fontSummary() {
 
 const quote = (n) => `'${String(n).replace(/'/g, '')}'`;
 const stackOf = (name) => `${quote(name)}, ${STACK_TAIL}`;
-export const fontStack = (f) => (f && f.name ? stackOf(f.name) : 'inherit');
+/** 글꼴 하나의 CSS font-family 값 (stack 이 있으면 그대로, name 이면 따옴표+대체 글꼴, 기본이면 inherit) */
+const familyOf = (f) => (f.stack ? f.stack : stackOf(f.name));
+export const fontStack = (f) => (f && (f.stack || f.name) ? familyOf(f) : 'inherit');
 
 const formatOf = (url) => {
   const ext = (url.split('?')[0].split('.').pop() || '').toLowerCase();
@@ -48,9 +63,9 @@ export function applyFonts({ body, head }) {
   const root = document.documentElement.style;
   const apply = (prop, id) => {
     const f = fontById(id);
-    if (!f || !f.name) return root.removeProperty(prop);
+    if (!f || (!f.name && !f.stack)) return root.removeProperty(prop);
     loadFont(f);
-    root.setProperty(prop, stackOf(f.name));
+    root.setProperty(prop, familyOf(f));
   };
   apply('--font-body', body);
   apply('--font-head', head);
@@ -58,7 +73,7 @@ export function applyFonts({ body, head }) {
 
 /** 앱을 열 때 저장된 글꼴 적용 (목록에서 지워진 글꼴이면 기본으로) */
 export function applySavedFont() {
-  const ok = (id) => (FONTS.some((f) => f.id === id) ? id : 'default');
+  const ok = (id) => (allFonts().some((f) => f.id === id) ? id : 'default');
   const { body, head } = prefs.getFonts();
   applyFonts({ body: ok(body), head: ok(head) });
 }
