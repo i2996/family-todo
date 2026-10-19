@@ -238,8 +238,50 @@ const patchPurchase = async (id, patch) => {
 /** 승인/반려 (status: 'approved' | 'rejected'). 요청한 사람에게 알림이 가요 */
 export const decidePurchase = (id, status, byMemberId) =>
   patchPurchase(id, { status, decided_by: byMemberId, decided_at: new Date().toISOString() });
-/** 구매 완료 체크 / 되돌리기 */
-export const setPurchaseBought = (id, bought) => patchPurchase(id, { status: bought ? 'bought' : 'approved' });
+/** 구매 목록 카테고리 → 먹거리 종류 (식재료·간식만 먹거리로 들어감) */
+const FOOD_KIND_OF = { grocery: 'ingredient', snack: 'snack' };
+/** 메모가 '2' 또는 '2팩'처럼 단순할 때만 수량으로 사용, 아니면 1 */
+const qtyFromMemo = (memo) => {
+  const m = String(memo || '').match(/^\s*(\d{1,2})\s*(개|팩|봉|봉지|병|캔|통|박스|입|판)?\s*$/);
+  return m ? Math.max(1, parseInt(m[1], 10)) : 1;
+};
+
+/**
+ * 구매 완료 체크 / 되돌리기.
+ * 식재료·간식은 구매 완료하면 먹거리 탭(식재료/간식)에 자동으로 들어가고, 되돌리면 그 항목도 뺌.
+ * 반환: { added, kind } | { removed } | { needSql } | null
+ */
+export async function setPurchaseBought(id, bought) {
+  await patchPurchase(id, { status: bought ? 'bought' : 'approved' });
+  const p = state.purchases.find((x) => x.id === id);
+  const kind = p && FOOD_KIND_OF[p.category];
+  if (!kind || !state.foodReady) return null;
+  const linked = p.food_item_id && state.foodItems.some((i) => i.id === p.food_item_id);
+  if (bought) {
+    if (linked) return null; // 이미 먹거리에 들어가 있음
+    try {
+      const row = await addFoodItem({
+        kind,
+        name: p.title,
+        servings: qtyFromMemo(p.memo),
+        storage: kind === 'snack' ? 'room' : 'fridge',
+        delivered_date: todayISO(),
+        shelf_life_days: null,
+      });
+      await patchPurchase(id, { food_item_id: row.id }).catch(() => {}); // 연결 칸이 없어도 등록 자체는 유지
+      return { added: true, kind };
+    } catch (e) {
+      if (/food_items_kind/.test(String(e && e.message))) return { needSql: true };
+      throw e;
+    }
+  }
+  if (linked) {
+    await removeFoodItem(p.food_item_id);
+    await patchPurchase(id, { food_item_id: null }).catch(() => {});
+    return { removed: true };
+  }
+  return null;
+}
 export async function removePurchase(id) {
   await purchasesDb.deletePurchase(id);
   set({ purchases: state.purchases.filter((x) => x.id !== id) });
@@ -263,6 +305,7 @@ export async function removeEvent(id) {
 export async function addFoodItem(p) {
   const row = await foodDb.insertFood(sid(), p);
   set({ foodItems: [...state.foodItems, row] });
+  return row;
 }
 export async function saveFoodItem(id, p) {
   const row = await foodDb.updateFood(id, p);
