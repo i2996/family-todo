@@ -64,7 +64,7 @@ export function renderBuyBox() {
   return `<section class="buy-box">
     <div class="buy-head"><h2>🛒 구매 목록</h2><button class="chip sm buy-add" data-act="buy-add">+ 구매 요청</button></div>
     <div class="seg wide" role="tablist">
-      <button class="${buyTab === 'planned' ? 'on' : ''}" data-act="buy-tab" data-v="planned">구매 예정 ${planned.length}</button>
+      <button class="${buyTab === 'planned' ? 'on' : ''}" data-act="buy-tab" data-v="planned">구매예정 ${planned.length}</button>
       <button class="${buyTab === 'pending' ? 'on' : ''}" data-act="buy-tab" data-v="pending">승인 대기 ${state.purchases.filter((p) => p.status === 'pending').length}</button>
     </div>
     ${noApprover && buyTab === 'pending' ? '<p class="note">승인 권한이 있는 사람이 아직 없어요. 설정 → 가족 구성원 → 권한에서 <b>구매 요청 승인</b>을 체크해주세요. (지금은 누구나 승인할 수 있어요)</p>' : ''}
@@ -138,7 +138,10 @@ export const actions = {
   },
   'buy-bought': async (el) => {
     try {
-      await A.setPurchaseBought(el.dataset.id, el.dataset.bought === '1');
+      const r = await A.setPurchaseBought(el.dataset.id, el.dataset.bought === '1');
+      if (r && r.added) toast(`먹거리 탭 ${r.kind === 'snack' ? '간식' : '식재료'}에 추가했어요. (먹거리에서 수정하면 보관·유통기한을 정할 수 있어요)`);
+      else if (r && r.removed) toast('먹거리에서도 뺐어요');
+      else if (r && r.needSql) toast('먹거리에 넣으려면 먼저 supabase/food-ingredients.sql 을 실행해주세요');
     } catch (e) {
       toast(hint(e));
     }

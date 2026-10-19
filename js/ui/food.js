@@ -1,4 +1,4 @@
-// 먹거리: [반찬] 주간 식단 + 재고 / [간식] 보관 장소별 재고
+// 먹거리: [식재료] [간식] 보관 장소별 재고 / [반찬] 주간 식단 + 재고 (탭 순서: 식재료 · 반찬 · 간식)
 import { state, set } from '../state.js';
 import { prefs } from '../prefs.js';
 import * as A from '../actions.js';
@@ -9,12 +9,17 @@ import { todayISO, addDays, shortDate, dow, KO_DOW, diffDays, labelDate } from '
 
 const STORAGE = { room: '실온', fridge: '냉장', frozen: '냉동' };
 const STORAGE_ICON = { room: '🏠', fridge: '❄️', frozen: '🧊' };
-const UNIT = { banchan: '끼분', snack: '개' };
+const UNIT = { banchan: '끼분', snack: '개', ingredient: '개' };
+const KIND = {
+  ingredient: { label: '식재료', icon: '🥬', ph: '식재료 이름 (예: 달걀)', empty: '아래 버튼으로 식재료를 등록해보세요 🥬' },
+  banchan: { label: '반찬', icon: '🍚', ph: '반찬 이름 (예: 멸치볶음)' },
+  snack: { label: '간식', icon: '🍪', ph: '간식 이름 (예: 요거트)', empty: '아래 버튼으로 간식을 등록해보세요 🍪' },
+};
 
 // '내일로' / '10/18로'
 const dayWord = (date) => (labelDate(date, todayISO()) === '내일' ? '내일로' : `${shortDate(date)}로`);
 
-const subTab = () => (prefs.getFoodTab() === 'snack' ? 'snack' : 'banchan');
+const subTab = () => (['ingredient', 'snack'].includes(prefs.getFoodTab()) ? prefs.getFoodTab() : 'banchan');
 const itemsOf = (kind) => state.foodItems.filter((i) => i.kind === kind);
 const badge = (s) => `<span class="badge ${s}">${STORAGE[s] || s}</span>`;
 
@@ -106,10 +111,10 @@ function banchanView(today) {
   <ul class="food-list">${sorted.map((it) => itemRow(it, today)).join('')}</ul>`;
 }
 
-/* ---------- 간식 ---------- */
-function snackView(today) {
-  const items = itemsOf('snack');
-  if (!items.length) return `<p class="empty big">아직 등록된 간식이 없어요.<br>아래 버튼으로 간식을 등록해보세요 🍪</p>`;
+/* ---------- 식재료 · 간식 (보관 장소별 재고) ---------- */
+function stockView(kind, today) {
+  const items = itemsOf(kind);
+  if (!items.length) return `<p class="empty big">아직 등록된 ${KIND[kind].label}이(가) 없어요.<br>${KIND[kind].empty}</p>`;
 
   const soon = items.filter((it) => {
     const d = F.daysLeft(it, today);
@@ -140,11 +145,10 @@ export function renderFood() {
   return `
   <section class="page-head"><h1>먹거리</h1></section>
   <div class="seg wide" role="tablist" aria-label="먹거리 종류">
-    <button class="${sub === 'banchan' ? 'on' : ''}" data-act="food-sub" data-v="banchan">🍚 반찬</button>
-    <button class="${sub === 'snack' ? 'on' : ''}" data-act="food-sub" data-v="snack">🍪 간식</button>
+    ${['ingredient', 'banchan', 'snack'].map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="food-sub" data-v="${k}">${KIND[k].icon} ${KIND[k].label}</button>`).join('')}
   </div>
-  ${sub === 'banchan' ? banchanView(today) : snackView(today)}
-  <button class="fab" data-act="food-add" aria-label="${sub === 'banchan' ? '반찬' : '간식'} 등록">+</button>`;
+  ${sub === 'banchan' ? banchanView(today) : stockView(sub, today)}
+  <button class="fab" data-act="food-add" aria-label="${KIND[sub].label} 등록">+</button>`;
 }
 
 /* ---------- 등록/수정 폼 ---------- */
@@ -152,12 +156,12 @@ export function openFoodForm({ kind, item = null }) {
   const it = item;
   const isB = kind === 'banchan';
   const storages = isB ? ['fridge', 'frozen'] : ['room', 'fridge', 'frozen'];
-  const cur = it?.storage || (isB ? 'fridge' : 'room');
+  const cur = it?.storage || (isB || kind === 'ingredient' ? 'fridge' : 'room');
   const delivered = it?.delivered_date || todayISO();
   const expires = it ? F.expiryOf(it) : null;
 
   const body = `<form data-form="food" data-kind="${kind}" data-id="${it ? it.id : ''}" autocomplete="off">
-    <input class="big-input" name="name" required maxlength="40" placeholder="${isB ? '반찬 이름 (예: 멸치볶음)' : '간식 이름 (예: 요거트)'}" value="${esc(it?.name)}">
+    <input class="big-input" name="name" required maxlength="40" placeholder="${KIND[kind].ph}" value="${esc(it?.name)}">
     <div class="grid2">
       <div class="field"><span class="label">${isB ? '남은 끼분' : '개수'}</span>
         <input type="number" name="servings" min="1" max="99" required value="${it?.servings ?? 1}"></div>
@@ -182,7 +186,7 @@ export function openFoodForm({ kind, item = null }) {
     </div></form>`;
 
   openSheet({
-    title: `${isB ? '반찬' : '간식'} ${it ? '수정' : '등록'}`,
+    title: `${KIND[kind].label} ${it ? '수정' : '등록'}`,
     body,
     onMount: (el) => !it && setTimeout(() => el.querySelector('[name=name]').focus(), 60),
   });
