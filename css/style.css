@@ -73,7 +73,7 @@
   --accent: var(--sky); --accent-d: var(--sky-d); --accent-soft: var(--sky-soft);
   --danger: #d6535a;
   --nav-w: 92px;
-  --font-body: 'NostalgicGukhanbakLovely', 'BelovedMyoeunttobak', 'Malgun Gothic', system-ui, sans-serif;
+  --font-body: system-ui, sans-serif, 'NostalgicGukhanbakLovely', 'BelovedMyoeunttobak', 'Malgun Gothic';
   --font-head: 'Jua', 'BelovedMyoeunttobak', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 body[data-tab='tasks'] { --accent: var(--mint);  --accent-d: var(--mint-d);  --accent-soft: var(--mint-soft); }
