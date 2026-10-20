@@ -28,3 +28,12 @@
 .perm small { color: var(--muted); }
 .perm:has(input:checked) { border-color: var(--accent-d); background: var(--accent-soft); }
 .member-list .badge { margin-left: 2px; }
+
+/* 켜기/끄기 스위치 */
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 4px 0 8px; }
+.switch-row b { font-weight: 400; font-size: 17px; display: block; }
+.switch-row small { color: var(--muted); display: block; margin-top: 2px; }
+.switch { position: relative; flex: none; width: 58px; height: 34px; border-radius: 17px; background: #d9d6cc; transition: background .15s; }
+.switch span { position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .15s; }
+.switch.on { background: var(--accent-d); }
+.switch.on span { transform: translateX(24px); }
