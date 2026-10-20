@@ -32,6 +32,12 @@ const MENU = [
     ],
   },
   {
+    id: 'food', icon: '🍱', title: '먹거리',
+    items: [
+      { act: 'menu-thaw', icon: '❄️', title: '냉장 해동 할 일 등록', sub: () => (A.thawAutoOn() ? '켜짐 · 냉동 반찬은 전날 할 일로' : '꺼짐') },
+    ],
+  },
+  {
     id: 'data', icon: '💾', title: '데이터',
     items: [
       { act: 'menu-backup', icon: '💾', title: '데이터 백업', sub: 'JSON 파일로 내려받기' },
@@ -65,6 +71,24 @@ export function openMenu() {
         })
       );
     },
+  });
+}
+
+/* ---------- 냉장 해동 할 일 자동 등록 on/off (가족 모두에게 적용) ---------- */
+function openThawSetting() {
+  const on = A.thawAutoOn();
+  const thawers = state.members.filter((m) => m.can_thaw).map((m) => esc(m.name));
+  openSheet({
+    title: '냉장 해동 할 일 등록',
+    back: openMenu,
+    body: `<div class="switch-row">
+        <div><b>냉동 반찬 해동 할 일 자동 등록</b>
+          <small>식단에서 다음 날 냉동 반찬이 있으면, 그 전날 "냉장 해동" 할 일을 자동으로 만들어요.</small></div>
+        <button class="switch${on ? ' on' : ''}" role="switch" aria-checked="${on}" data-act="thaw-toggle" aria-label="냉장 해동 할 일 자동 등록"><span></span></button>
+      </div>
+      <p class="note">${on ? '켜짐' : '꺼짐'} · 가족 모든 기기에 같이 적용돼요.</p>
+      <p class="note">담당: ${thawers.length ? `<b>${thawers.join(', ')}</b> (해동 알림 받기 권한자)` : '아직 권한자가 없어서 온 가족 할 일로 등록돼요. 구성원 설정의 "해동 알림 받기"를 체크해주세요.'}</p>
+      ${state.settingsReady ? '' : '<p class="food-warn">이 설정을 저장하려면 먼저 <b>supabase/space-settings.sql</b> 을 실행해주세요.</p>'}`,
   });
 }
 
@@ -239,6 +263,32 @@ export const actions = {
   'menu-space': openSpace,
   'menu-notify': openNotify,
   'menu-font': openFonts,
+  'menu-thaw': openThawSetting,
+  'thaw-toggle': async () => {
+    try {
+      if (A.thawAutoOn()) {
+        const n = A.pendingThawTasks().length;
+        let remove = false;
+        if (n) {
+          const c = await confirmDialog({
+            title: '해동 할 일 자동 등록을 끌까요?',
+            message: `이미 등록된 해동 할 일 ${n}개(아직 안 끝낸 것)를 어떻게 할까요?`,
+            choices: [{ label: '취소', value: null }, { label: '그대로 두기', value: 'keep' }, { label: '같이 지우기', value: 'remove', kind: 'danger' }],
+          });
+          if (!c) return;
+          remove = c === 'remove';
+        }
+        await A.setThawAuto(false, { removeExisting: remove });
+        toast('해동 할 일 자동 등록을 껐어요');
+      } else {
+        await A.setThawAuto(true);
+        toast('해동 할 일 자동 등록을 켰어요');
+      }
+    } catch (e) {
+      toast(String(e && e.message).includes('space_settings') ? '먼저 supabase/space-settings.sql 을 실행해주세요' : errMsg(e));
+    }
+    openThawSetting(); // 상태 표시 갱신
+  },
   'font-scope': (el) => {
     fontScope = el.dataset.v;
     document.querySelectorAll('#font-scope button').forEach((b) => b.classList.toggle('on', b.dataset.v === fontScope));

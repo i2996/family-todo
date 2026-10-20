@@ -51,7 +51,9 @@ function banchanView(today) {
   const hasFrozen = items.some((i) => i.storage === 'frozen');
   const thawNote = !hasFrozen
     ? ''
-    : !A.thawSupported()
+    : !A.thawAutoOn()
+      ? '<p class="food-note">❄️ 냉장 해동 할 일 자동 등록이 <b>꺼져 있어요</b>. (설정 → 먹거리에서 켤 수 있어요)</p>'
+      : !A.thawSupported()
       ? '<p class="food-note">냉동 반찬 해동 할 일을 자동 등록하려면 <b>supabase/member-perms.sql</b> 을 실행해주세요.</p>'
       : !A.hasThawers()
         ? '<p class="food-note">설정 → 가족 구성원 → 권한에서 <b>해동 알림 받기</b>를 체크하면 냉동 반찬 해동 할 일이 그 사람에게만 가요. (지금은 온 가족 할 일로 등록돼요)</p>'
