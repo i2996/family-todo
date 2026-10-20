@@ -9,6 +9,7 @@ import * as foodDb from './data/food.js';
 import * as eventsDb from './data/events.js';
 import * as purchasesDb from './data/purchases.js';
 import * as plansDb from './data/plans.js';
+import * as settingsDb from './data/settings.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
@@ -20,7 +21,7 @@ const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food, ev, days, buy, plan] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev, days, buy, plan, cfg] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
@@ -30,8 +31,20 @@ export async function loadAll() {
     loadDays(),
     loadPurchases(),
     loadPlans(),
+    loadSettings(),
   ]);
-  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan });
+  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan, ...cfg });
+}
+
+/** 가족 공용 설정 테이블(space-settings.sql)이 없어도 앱은 정상 동작 (설정은 기본값) */
+async function loadSettings() {
+  try {
+    const rows = await settingsDb.listSettings(sid());
+    return { settings: Object.fromEntries(rows.map((r) => [r.key, r.value])), settingsReady: true };
+  } catch (e) {
+    console.warn('가족 설정을 불러오지 못했어요 (supabase/space-settings.sql 실행 필요)', e);
+    return { settings: {}, settingsReady: false };
+  }
 }
 
 /** 계획 테이블(plans.sql)이 없어도 나머지 앱은 정상 동작 */
@@ -98,6 +111,7 @@ export async function refresh(table) {
     case 'food_days': return set(await loadDays());
     case 'purchases': return set(await loadPurchases());
     case 'trip_plans': return set(await loadPlans());
+    case 'space_settings': return set(await loadSettings());
     default: return loadAll();
   }
 }
@@ -395,8 +409,34 @@ export const hasThawers = () => state.members.some((m) => m.can_thaw);
  * 식단에서 '다음 날 냉동 반찬이 있는 날'마다 "❄️ OO 냉장 해동" 할 일을 만든다 (담당: '해동 알림 받기' 권한자, 아무도 없으면 온 가족).
  * 식단이 바뀌어 필요 없어진 해동 할 일은(아직 안 끝낸 것만) 지운다.
  */
+/** 냉장 해동 할 일 자동 등록이 켜져 있는지 (설정이 없으면 켬) */
+export const thawAutoOn = () => state.settings.thaw_auto?.on !== false;
+const isThawTask = (t) => t.source_key && t.source_key.startsWith('thaw:');
+/** 지금 지울 수 있는 해동 할 일 (아직 안 끝낸 오늘 이후 것) */
+export const pendingThawTasks = () => state.tasks.filter((t) => isThawTask(t) && !t.done && t.task_date >= todayISO());
+
+/** 켜기/끄기. 끌 때 removeExisting 이면 이미 등록된 해동 할 일도 지움 */
+export async function setThawAuto(on, { removeExisting = false } = {}) {
+  const before = state.settings;
+  set({ settings: { ...state.settings, thaw_auto: { on } } });
+  try {
+    await settingsDb.saveSetting(sid(), 'thaw_auto', { on });
+  } catch (e) {
+    set({ settings: before });
+    throw e;
+  }
+  if (!on && removeExisting) {
+    const ids = pendingThawTasks().map((t) => t.id);
+    if (ids.length) {
+      await tasksDb.deleteTasks(ids);
+      set({ tasks: state.tasks.filter((t) => !ids.includes(t.id)) });
+    }
+  }
+  if (on) await syncThawTasks();
+}
+
 export async function syncThawTasks() {
-  if (!state.space || !thawSupported()) return;
+  if (!state.space || !thawSupported() || !thawAutoOn()) return;
   const today = todayISO();
   const items = state.foodItems.filter((i) => i.kind === 'banchan');
   const plan = F.resolvePlan(items, state.foodPlan, today, outDates());

@@ -8,6 +8,8 @@ export const state = {
   foodItems: [],
   foodPlan: [],
   foodReady: true, // food.sql 이 적용돼 있는지
+  settings: {}, // 가족 공용 설정 { 키: 값 }
+  settingsReady: true, // space-settings.sql 이 적용돼 있는지
   plans: [], // 날짜 미정 외출·여행 계획
   plansReady: true, // plans.sql 이 적용돼 있는지
   purchases: [], // 구매 목록
