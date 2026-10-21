@@ -34,7 +34,7 @@ const MENU = [
   {
     id: 'food', icon: '🍱', title: '먹거리',
     items: [
-      { act: 'menu-thaw', icon: '❄️', title: '냉장 해동 할 일 등록', sub: () => (A.thawAutoOn() ? '켜짐 · 냉동 반찬은 전날 할 일로' : '꺼짐') },
+      { act: 'menu-thaw', icon: '❄️', title: '냉장 해동 할 일 등록', sub: () => (A.thawAutoOn() ? `켜짐 · ${A.thawTime() ? `${A.thawTime()}에 등록` : '식단이 바뀌면 바로 등록'}` : '꺼짐') },
     ],
   },
   {
@@ -77,6 +77,7 @@ export function openMenu() {
 /* ---------- 냉장 해동 할 일 자동 등록 on/off (가족 모두에게 적용) ---------- */
 function openThawSetting() {
   const on = A.thawAutoOn();
+  const time = A.thawTime();
   const thawers = state.members.filter((m) => m.can_thaw).map((m) => esc(m.name));
   openSheet({
     title: '냉장 해동 할 일 등록',
@@ -85,6 +86,19 @@ function openThawSetting() {
         <div><b>냉동 반찬 해동 할 일 자동 등록</b>
           <small>식단에서 다음 날 냉동 반찬이 있으면, 그 전날 "냉장 해동" 할 일을 자동으로 만들어요.</small></div>
         <button class="switch${on ? ' on' : ''}" role="switch" aria-checked="${on}" data-act="thaw-toggle" aria-label="냉장 해동 할 일 자동 등록"><span></span></button>
+      </div>
+      <div class="field${on ? '' : ' dim'}"><span class="label">언제 등록할까요?</span>
+        <div class="seg wide" id="thaw-mode" role="group">
+          <button type="button" class="${time ? '' : 'on'}" data-act="thaw-mode" data-v="now">바로 등록</button>
+          <button type="button" class="${time ? 'on' : ''}" data-act="thaw-mode" data-v="timed">정한 시각에</button>
+        </div>
+        ${
+          time
+            ? `<div class="row" style="margin-top:10px"><input type="time" id="thaw-time" value="${esc(time)}" aria-label="등록 시각"><button type="button" class="btn" data-act="thaw-time-save">저장</button></div>
+               <p class="note">매일 이 시각이 되면 <b>내일 먹을 냉동 반찬</b>의 "냉장 해동" 할 일이 오늘 날짜로 등록되고, 담당자에게 알림이 가요. (한국 시간)</p>
+               <p class="note">서버가 정시에 등록하려면 <b>supabase/thaw-schedule.sql</b> 을 한 번 실행해야 해요. 안 하면 그 시각 이후 누군가 앱을 열 때 등록돼요.</p>`
+            : '<p class="note">식단을 짜거나 바꾸는 순간 바로 해동 할 일이 만들어져요.</p>'
+        }
       </div>
       <p class="note">${on ? '켜짐' : '꺼짐'} · 가족 모든 기기에 같이 적용돼요.</p>
       <p class="note">담당: ${thawers.length ? `<b>${thawers.join(', ')}</b> (해동 알림 받기 권한자)` : '아직 권한자가 없어서 온 가족 할 일로 등록돼요. 구성원 설정의 "해동 알림 받기"를 체크해주세요.'}</p>
@@ -264,6 +278,25 @@ export const actions = {
   'menu-notify': openNotify,
   'menu-font': openFonts,
   'menu-thaw': openThawSetting,
+  'thaw-mode': async (el) => {
+    try {
+      await A.setThawTime(el.dataset.v === 'timed' ? A.thawTime() || '20:00' : null);
+    } catch (e) {
+      toast(String(e && e.message).includes('space_settings') ? '먼저 supabase/space-settings.sql 을 실행해주세요' : errMsg(e));
+    }
+    openThawSetting();
+  },
+  'thaw-time-save': async () => {
+    const v = document.getElementById('thaw-time')?.value;
+    if (!/^\d{2}:\d{2}$/.test(v || '')) return toast('시각을 골라주세요');
+    try {
+      await A.setThawTime(v);
+      toast(`매일 ${v}에 등록해요`);
+    } catch (e) {
+      toast(errMsg(e));
+    }
+    openThawSetting();
+  },
   'thaw-toggle': async () => {
     try {
       if (A.thawAutoOn()) {
