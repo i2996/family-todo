@@ -96,6 +96,7 @@ function openThawSetting() {
           time
             ? `<div class="row" style="margin-top:10px"><input type="time" id="thaw-time" value="${esc(time)}" aria-label="등록 시각"><button type="button" class="btn" data-act="thaw-time-save">저장</button></div>
                <p class="note">매일 이 시각이 되면 <b>내일 먹을 냉동 반찬</b>의 "냉장 해동" 할 일이 오늘 날짜로 등록되고, 담당자에게 알림이 가요. (한국 시간)</p>
+               <p class="note">서버가 정시에 등록하려면 <b>supabase/thaw-schedule.sql</b> 을 한 번 실행해야 해요. 안 하면 그 시각 이후 누군가 앱을 열 때 등록돼요.</p>`
             : '<p class="note">식단을 짜거나 바꾸는 순간 바로 해동 할 일이 만들어져요.</p>'
         }
       </div>
