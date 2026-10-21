@@ -415,16 +415,33 @@ const isThawTask = (t) => t.source_key && t.source_key.startsWith('thaw:');
 /** 지금 지울 수 있는 해동 할 일 (아직 안 끝낸 오늘 이후 것) */
 export const pendingThawTasks = () => state.tasks.filter((t) => isThawTask(t) && !t.done && t.task_date >= todayISO());
 
-/** 켜기/끄기. 끌 때 removeExisting 이면 이미 등록된 해동 할 일도 지움 */
-export async function setThawAuto(on, { removeExisting = false } = {}) {
+/** 해동 할 일 등록 시각 'HH:MM' (없으면 null = 식단이 바뀔 때 바로 등록) */
+export const thawTime = () => state.settings.thaw_auto?.time || null;
+const nowHM = () => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+async function saveThawConfig(next) {
   const before = state.settings;
-  set({ settings: { ...state.settings, thaw_auto: { on } } });
+  set({ settings: { ...state.settings, thaw_auto: next } });
   try {
-    await settingsDb.saveSetting(sid(), 'thaw_auto', { on });
+    await settingsDb.saveSetting(sid(), 'thaw_auto', next);
   } catch (e) {
     set({ settings: before });
     throw e;
   }
+}
+
+/** 등록 시각 바꾸기 (time: 'HH:MM' 또는 null=바로 등록). 시각이 정해지면 그 시각이 되어야 해동 할 일이 만들어져요 */
+export async function setThawTime(time) {
+  await saveThawConfig({ ...(state.settings.thaw_auto || {}), on: thawAutoOn(), time: time || null });
+  await syncThawTasks();
+}
+
+/** 켜기/끄기. 끌 때 removeExisting 이면 이미 등록된 해동 할 일도 지움 */
+export async function setThawAuto(on, { removeExisting = false } = {}) {
+  await saveThawConfig({ ...(state.settings.thaw_auto || {}), on });
   if (!on && removeExisting) {
     const ids = pendingThawTasks().map((t) => t.id);
     if (ids.length) {
@@ -454,7 +471,10 @@ export async function syncThawTasks() {
   const existing = state.tasks.filter((t) => t.source_key && t.source_key.startsWith('thaw:'));
   const have = new Set(existing.map((t) => t.source_key));
   const stale = existing.filter((t) => !desired.has(t.source_key) && !t.done && t.task_date >= today);
-  const create = [...desired].filter(([k]) => !have.has(k));
+  // 등록 시각이 정해져 있으면: 그 날짜의 정해진 시각이 지난 것만 지금 만든다 (그 전에는 서버/나중에 앱을 열 때 만들어짐)
+  const time = thawTime();
+  const due = (date) => !time || date < today || (date === today && nowHM() >= time);
+  const create = [...desired].filter(([k, v]) => !have.has(k) && due(v.task_date));
   if (!create.length && !stale.length) return;
 
   const thawers = state.members.filter((m) => m.can_thaw).map((m) => m.id);
