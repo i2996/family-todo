@@ -25,6 +25,9 @@ export const prefs = {
   setFilter: (f) => write('filter', f),
   getFoodTab: () => read('foodTab', 'banchan'),
   setFoodTab: (v) => write('foodTab', v),
+  /** 테마 (이 기기에만 저장) */
+  getTheme: () => read('theme', 'pastel'),
+  setTheme: (v) => write('theme', v),
   /** 글꼴 (이 기기에만 저장) */
   getFonts: () => {
     const f = read('fonts', null);

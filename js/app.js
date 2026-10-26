@@ -7,7 +7,7 @@ import { state, set } from './state.js';
 import * as A from './actions.js';
 import { toast, errMsg, deviceMemberId, assigneeLabel, occFor } from './ui/components.js';
 import { buildShareText, shareText } from './logic/share.js';
-import { applySavedFont } from './ui/theme.js';
+import { applySavedFont, applySavedTheme } from './ui/theme.js';
 import { mountShell, actions as layoutActions } from './ui/layout.js';
 import { renderGate, actions as gateActions, forms as gateForms } from './ui/gate.js';
 import { actions as sheetActions, confirmDialog } from './ui/sheet.js';
@@ -174,4 +174,5 @@ async function boot() {
 }
 
 applySavedFont(); // 저장된 글꼴을 화면이 그려지기 전에 적용
+applySavedTheme(); // 저장된 테마도 같이
 boot();
