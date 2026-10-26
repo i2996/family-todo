@@ -1,0 +1,82 @@
+/* 테마: html[data-theme='…'] 로 색 변수만 바꿔요. (파스텔 = 속성 없음 = style.css 기본값)
+   style.css 는 건드리지 않고, 이 파일을 맨 마지막에 불러와서 덮어써요. */
+
+/* ───────── 공통: 어두운 화면이 아닌 테마도 하단 탭 배경이 테마 색을 따르게 ───────── */
+html[data-theme] .nav { background: color-mix(in srgb, var(--paper) 96%, transparent); }
+
+/* ───────── 숲 ───────── */
+html[data-theme='nature'] {
+  --bg: #eceee2; --paper: #fbfcf6; --ink: #34402f; --muted: #7b8873; --line: #d9dfcb;
+  --sky: #cde4dc;    --sky-d: #2f7466;    --sky-soft: #e6f2ee;
+  --mint: #d5e8c9;   --mint-d: #3e7a34;   --mint-soft: #ecf5e5;
+  --butter: #efe6bd; --butter-d: #857019; --butter-soft: #f8f3de;
+  --peach: #efd9c2;  --peach-d: #a65e32;  --peach-soft: #f8ede2;
+  --lav: #e0d9e8;    --lav-d: #6a5784;    --lav-soft: #efeaf3;
+  --rose: #efd4d2;   --rose-d: #b05a58;
+  --danger: #c9524f; --surface: #ffffff;
+}
+
+/* ───────── 바다 ───────── */
+html[data-theme='ocean'] {
+  --bg: #e8f2f8; --paper: #fbfeff; --ink: #1f3648; --muted: #6f8799; --line: #d0e1ea;
+  --sky: #c6e3f6;    --sky-d: #2a6da1;    --sky-soft: #e3f1fb;
+  --mint: #c8ecec;   --mint-d: #23797a;   --mint-soft: #e3f6f6;
+  --butter: #fbefc6; --butter-d: #86690f; --butter-soft: #fdf7e1;
+  --peach: #fcdccb;  --peach-d: #b45c2e;  --peach-soft: #fef0e8;
+  --lav: #d9dcf6;    --lav-d: #5456b0;    --lav-soft: #ecedfb;
+  --rose: #f9d9e3;   --rose-d: #bd4f6e;
+  --danger: #d6535a; --surface: #ffffff;
+}
+
+/* ───────── 밤하늘 (어두운 화면) ───────── */
+html[data-theme='dark'] {
+  color-scheme: dark; /* 날짜 선택창 같은 기본 부품도 어둡게 */
+  --bg: #161a23; --paper: #1e2330; --ink: #e8ebf3; --muted: #98a1b5; --line: #343c50;
+  --surface: #262d3d; --surface-2: #2d3547;
+  --sky: #25465c;    --sky-d: #86c8f0;    --sky-soft: #1f3040;
+  --mint: #234a3d;   --mint-d: #77d8b4;   --mint-soft: #1d332b;
+  --butter: #4a4222; --butter-d: #ecd06a; --butter-soft: #2f2b1a;
+  --peach: #573b2b;  --peach-d: #f5ae82;  --peach-soft: #34261d;
+  --lav: #3a3259;    --lav-d: #bfaaf5;    --lav-soft: #2a2540;
+  --rose: #58303c;   --rose-d: #f594b0;
+  --danger: #ff7b82;
+}
+/* 흰색으로 고정돼 있던 바탕들을 어두운 면으로 */
+html[data-theme='dark'] :where(.chip, .btn, .seg, .big-input, input[type=text], input[type=date], input[type=number], input[type=password],
+  input[type=time], input:not([type]), select, textarea, .check span, .buy-box, .plan-box, .perm, .font-item, .swatch.custom, .day-eat.undo) {
+  background: var(--surface);
+}
+html[data-theme='dark'] .chip:is(.on, :has(input:checked)) { background: color-mix(in srgb, var(--mc, var(--accent-d)) 26%, var(--surface)); }
+html[data-theme='dark'] .sticker { background: color-mix(in srgb, var(--mc, var(--accent-d)) 20%, var(--surface)); }
+html[data-theme='dark'] .tag.done-by { background: color-mix(in srgb, var(--mc) 32%, var(--surface)); color: var(--ink); }
+html[data-theme='dark'] .cal-text { background: color-mix(in srgb, var(--mc) 40%, var(--paper)); }
+html[data-theme='dark'] .task.ring:not(.done) .check span { background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--ring) border-box; }
+html[data-theme='dark'] .swatch { border-color: var(--surface); }
+html[data-theme='dark'] :where(.tag, .menu-group > summary small, .dish.eaten) { background: var(--surface-2); }
+html[data-theme='dark'] .switch { background: #4a5368; }
+html[data-theme='dark'] .switch.on { background: var(--accent-d); }
+html[data-theme='dark'] .switch span { background: #fff; }
+/* 글자색이 어두운 초록·파랑 등으로 고정돼 있던 곳 → 밝은 계열 */
+html[data-theme='dark'] :where(.tag.trip, .trip-line small, .trip-main .prog, .badge, .exp.ok) { color: var(--mint-d); }
+html[data-theme='dark'] :where(.thaw, .badge.frozen) { color: var(--sky-d); }
+html[data-theme='dark'] .badge.frozen { background: var(--sky); }
+html[data-theme='dark'] .badge.room { color: var(--butter-d); }
+html[data-theme='dark'] .date-tape { background: repeating-linear-gradient(135deg, var(--butter) 0 10px, #5a4e22 10px 12px); color: var(--ink); }
+html[data-theme='dark'] .day.today .n { box-shadow: 0 0 0 2px var(--butter-d); }
+html[data-theme='dark'] .dish.urgent { border-color: var(--rose-d); }
+html[data-theme='dark'] .dish button:hover { background: rgba(255, 255, 255, .12); }
+html[data-theme='dark'] .btn.danger { border-color: #6b3a42; }
+/* 완료 체크: 채운 색(체크한 사람 색) 위에서 보이도록 표시는 어둡게, 채움은 그대로 유지 */
+html[data-theme='dark'] .task.done .check span, html[data-theme='dark'] .buy-item.bought .check span { background: var(--dc, var(--mc)); border-color: var(--dc, var(--mc)); }
+html[data-theme='dark'] .task.done .check span::after, html[data-theme='dark'] .buy-item.bought .check span::after { color: #1b2030; }
+html[data-theme='dark'] #toast { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+
+/* ───────── 설정 → 테마 선택 화면 ───────── */
+.theme-list { display: grid; gap: 10px; }
+.theme-item { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; text-align: left; padding: 12px 14px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface, #fff); }
+.theme-item.on { border-color: var(--accent-d); background: var(--accent-soft); }
+.theme-name { font-size: 17px; display: block; }
+.theme-desc { color: var(--muted); font-size: 13px; display: block; margin: 1px 0 8px; }
+.theme-swatch { display: flex; gap: 6px; }
+.theme-swatch i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .12); }
+.theme-check { color: var(--accent-d); font-size: 24px; }
