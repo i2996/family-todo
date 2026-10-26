@@ -1,5 +1,6 @@
 // 글꼴 적용: 선택한 글꼴을 불러와서 CSS 변수(--font-body / --font-head)에 넣는다. (기기별 저장)
 import { FONTS } from '../fonts.js';
+import { THEMES } from '../themes.js';
 import { prefs } from '../prefs.js';
 
 const STACK_TAIL = `'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif`;
@@ -77,3 +78,19 @@ export function applySavedFont() {
   const { body, head } = prefs.getFonts();
   applyFonts({ body: ok(body), head: ok(head) });
 }
+
+/* ---------- 테마 (색 모음): <html data-theme='…'> 로 css/themes.css 가 색 변수를 바꿈 ---------- */
+export const listThemes = () => THEMES;
+export const themeById = (id) => THEMES.find((t) => t.id === id) || THEMES[0];
+export const currentTheme = () => themeById(prefs.getTheme());
+
+export function applyTheme(id) {
+  const t = themeById(id);
+  const root = document.documentElement;
+  if (t.id === THEMES[0].id) delete root.dataset.theme; // 기본(파스텔)은 style.css 그대로
+  else root.dataset.theme = t.id;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t.bar); // 폰 상단 상태바 색
+}
+
+export const applySavedTheme = () => applyTheme(prefs.getTheme());

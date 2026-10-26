@@ -6,7 +6,7 @@ import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, PALETTE, memberById, deviceMemberId } from './components.js';
 import { todayISO } from '../logic/dates.js';
 import { shareText } from '../logic/share.js';
-import { listFonts, currentFonts, fontSummary, applyFonts, loadFont, fontStack } from './theme.js';
+import { listFonts, currentFonts, fontSummary, applyFonts, loadFont, fontStack, listThemes, currentTheme, applyTheme } from './theme.js';
 
 export const inviteLink = () => `${location.origin}${location.pathname}?code=${state.space.code}`;
 
@@ -28,6 +28,7 @@ const MENU = [
     items: [
       { act: 'menu-device', icon: '📱', title: '이 기기는 누구 거예요?', sub: '열자마자 내 할 일이 보여요' },
       { act: 'menu-notify', icon: '🔔', title: '알림', sub: '새 할 일이 배정되면 알려줘요' },
+      { act: 'menu-theme', icon: '🎨', title: '테마', sub: () => currentTheme().label },
       { act: 'menu-font', icon: '🔤', title: '글꼴', sub: () => fontSummary() },
     ],
   },
@@ -95,13 +96,35 @@ function openThawSetting() {
         ${
           time
             ? `<div class="row" style="margin-top:10px"><input type="time" id="thaw-time" value="${esc(time)}" aria-label="등록 시각"><button type="button" class="btn" data-act="thaw-time-save">저장</button></div>
-               <p class="note">매일 이 시각이 되면 <b>내일 먹을 냉동 반찬</b>의 "냉장 해동" 할 일이 오늘 날짜로 등록되고, 담당자에게 알림이 가요. (한국 시간)</p>`
+               <p class="note">매일 이 시각이 되면 <b>내일 먹을 냉동 반찬</b>의 "냉장 해동" 할 일이 오늘 날짜로 등록되고, 담당자에게 알림이 가요. (한국 시간)</p>
+               <p class="note">서버가 정시에 등록하려면 <b>supabase/thaw-schedule.sql</b> 을 한 번 실행해야 해요. 안 하면 그 시각 이후 누군가 앱을 열 때 등록돼요.</p>`
             : '<p class="note">식단을 짜거나 바꾸는 순간 바로 해동 할 일이 만들어져요.</p>'
         }
       </div>
       <p class="note">${on ? '켜짐' : '꺼짐'} · 가족 모든 기기에 같이 적용돼요.</p>
       <p class="note">담당: ${thawers.length ? `<b>${thawers.join(', ')}</b> (해동 알림 받기 권한자)` : '아직 권한자가 없어서 온 가족 할 일로 등록돼요. 구성원 설정의 "해동 알림 받기"를 체크해주세요.'}</p>
       ${state.settingsReady ? '' : '<p class="food-warn">이 설정을 저장하려면 먼저 <b>supabase/space-settings.sql</b> 을 실행해주세요.</p>'}`,
+  });
+}
+
+/* ---------- 테마 ---------- */
+function themeListHTML() {
+  const cur = currentTheme().id;
+  return listThemes()
+    .map(
+      (t) => `<button class="theme-item${t.id === cur ? ' on' : ''}" data-act="theme-pick" data-id="${esc(t.id)}">
+        <span><span class="theme-name">${esc(t.label)}</span><span class="theme-desc">${esc(t.desc)}</span>
+          <span class="theme-swatch">${t.swatch.map((c) => `<i style="background:${esc(c)}"></i>`).join('')}</span></span>
+        <span class="theme-check">${t.id === cur ? '✓' : ''}</span>
+      </button>`
+    )
+    .join('');
+}
+function openThemes() {
+  openSheet({
+    title: '테마',
+    back: openMenu,
+    body: `<p class="note">고른 테마는 이 기기에만 적용돼요.</p><div class="theme-list" id="theme-list">${themeListHTML()}</div>`,
   });
 }
 
@@ -276,6 +299,12 @@ export const actions = {
   'menu-space': openSpace,
   'menu-notify': openNotify,
   'menu-font': openFonts,
+  'menu-theme': openThemes,
+  'theme-pick': (el) => {
+    prefs.setTheme(el.dataset.id);
+    applyTheme(el.dataset.id);
+    document.getElementById('theme-list').innerHTML = themeListHTML(); // 선택 표시 갱신
+  },
   'menu-thaw': openThawSetting,
   'thaw-mode': async (el) => {
     try {
