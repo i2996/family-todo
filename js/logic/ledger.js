@@ -106,12 +106,37 @@ export const visibilityOf = (e) => (e?.is_public ? 'public' : (e?.shared_with ||
 
 export const SHIFT_LABEL = { none: '그대로', before: '앞 영업일', after: '다음 영업일' };
 
+const WEEK_NAMES = ['첫째', '둘째', '셋째', '넷째', '다섯째'];
+/** 1~5 → '첫째'~'다섯째', -1 → '마지막' */
+export const weekName = (n) => (n === -1 ? '마지막' : WEEK_NAMES[n - 1] || `${n}번째`);
+
+/** 날짜가 그 달의 몇 번째 요일인지 → { nth: 1~5, isLast: 마지막 그 요일인지 } */
+export function weekOfMonth(iso) {
+  const [y, m, d] = _parts(iso);
+  return { nth: Math.ceil(d / 7), isLast: d + 7 > _dim(y, m) };
+}
+
+/** y년 m월의 n번째(-1=마지막) w요일 날짜. 없으면(다섯째가 없는 달) null */
+export function nthWeekday(y, m, n, w) {
+  const dim = _dim(y, m);
+  if (n === -1) {
+    const lastDow = _dow(`${y}-${_pad(m)}-${_pad(dim)}`);
+    return `${y}-${_pad(m)}-${_pad(dim - ((lastDow - w + 7) % 7))}`;
+  }
+  const firstDow = _dow(`${y}-${_pad(m)}-01`);
+  const day = 1 + ((w - firstDow + 7) % 7) + (n - 1) * 7;
+  return day <= dim ? `${y}-${_pad(m)}-${_pad(day)}` : null;
+}
+
 /** 반복 설명: '매월 25일 · 쉬는 날이면 앞 영업일' */
 export function repeatLabel(r) {
   const [, m, d] = _parts(r.start_date);
   const base =
     r.freq === 'weekly' ? `매주 ${_KO_DOW[_dow(r.start_date)]}요일`
-    : r.freq === 'monthly' ? (r.last_day ? '매월 말일' : `매월 ${d}일`)
+    : r.freq === 'monthly'
+      ? r.last_day ? '매월 말일'
+        : r.month_week ? `매월 ${weekName(r.month_week)} ${_KO_DOW[_dow(r.start_date)]}요일`
+        : `매월 ${d}일`
     : `매년 ${m}월 ${d}일`;
   return r.shift && r.shift !== 'none' ? `${base} · 쉬는 날이면 ${SHIFT_LABEL[r.shift]}` : base;
 }
@@ -145,7 +170,10 @@ export function repeatOccurrences(r, until, extra = []) {
       const first = `${y}-${_pad(m)}-01`;
       if (first > end) break;
       const dim = _dim(y, m);
-      push(`${y}-${_pad(m)}-${_pad(r.last_day ? dim : Math.min(sd, dim))}`);
+      if (r.month_week) {
+        const d = nthWeekday(y, m, r.month_week, _dow(r.start_date)); // 매월 n번째 ○요일
+        if (d) push(d);
+      } else push(`${y}-${_pad(m)}-${_pad(r.last_day ? dim : Math.min(sd, dim))}`);
     }
   } else if (r.freq === 'yearly') {
     for (let y = sy; y < sy + 100; y++) {
@@ -154,4 +182,21 @@ export function repeatOccurrences(r, until, extra = []) {
     }
   }
   return out;
+}
+
+/* ---------- 검색 ---------- */
+/**
+ * 내용·분류·금액·작성자 이름으로 찾기. 띄어쓰기로 나눈 낱말이 모두 들어 있어야 함.
+ * nameOf: 구성원 id → 이름
+ */
+export function searchEntries(entries, query, nameOf = () => '') {
+  const words = String(query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  return entries.filter((e) => {
+    const hay = [e.memo, e.category, e.kind === 'income' ? '수입' : '지출', String(e.amount), Number(e.amount).toLocaleString('ko-KR'), nameOf(e.created_by)]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return words.every((w) => hay.includes(w.replace(/원$/, '')));
+  });
 }

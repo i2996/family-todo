@@ -79,3 +79,10 @@ body[data-tab='ledger'] { --accent: var(--lav); --accent-d: var(--lav-d); --acce
 .lg-hol-list b { flex: 1; font-weight: 400; }
 .lg-hol-add { margin-top: 16px; }
 .lg-hol-add .grid2 { margin-top: 6px; }
+
+/* 검색 */
+.lg-search { display: flex; align-items: center; gap: 6px; margin-top: 20px; }
+.lg-search input { flex: 1; min-width: 0; min-height: 42px; padding: 8px 12px; border-radius: 14px; border: 2px solid var(--line); background: #fff; font-size: 15px; }
+.lg-search input:focus { outline: none; border-color: var(--accent-d); }
+.lg-found { display: flex; gap: 12px; flex-wrap: wrap; margin: 6px 2px 0; font-size: 14px; }
+.rep-mday { margin-top: 4px; }
