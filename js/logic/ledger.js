@@ -43,11 +43,38 @@ export function summarize(entries) {
   return { income, expense, balance: income - expense };
 }
 
-/** 분류별 지출 합계 (큰 순서) [{ category, amount }] */
-export function expenseByCategory(entries) {
+/** 분류별 합계 (큰 순서) [{ category, amount }]. kind: 'expense' | 'income' */
+export function byCategory(entries, kind = 'expense') {
   const map = new Map();
-  for (const e of entries) if (e.kind !== 'income') map.set(e.category, (map.get(e.category) || 0) + (Number(e.amount) || 0));
+  for (const e of entries) if ((e.kind === 'income') === (kind === 'income')) map.set(e.category, (map.get(e.category) || 0) + (Number(e.amount) || 0));
   return [...map].map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+}
+export const expenseByCategory = (entries) => byCategory(entries, 'expense');
+
+/** 보기 방식으로 거르기. mode: 'all' | 'income' | 'expense' */
+export const byMode = (entries, mode) => (mode === 'all' ? entries : entries.filter((e) => (e.kind === 'income') === (mode === 'income')));
+
+/** 날짜 → { income, expense } (달력 표시용) */
+export function dailyTotals(entries) {
+  const map = new Map();
+  for (const e of entries) {
+    const d = String(e.entry_date).slice(0, 10);
+    const t = map.get(d) || { income: 0, expense: 0 };
+    if (e.kind === 'income') t.income += Number(e.amount) || 0;
+    else t.expense += Number(e.amount) || 0;
+    map.set(d, t);
+  }
+  return map;
+}
+
+/** 달력 칸에 들어가게 짧게: 9,500 / 5.2만 / 350만 / 1.2억 */
+export function compactWon(n) {
+  n = Math.abs(Number(n) || 0);
+  const trim = (x) => String(Math.round(x * 10) / 10).replace(/\.0$/, '');
+  if (n >= 1e8) return `${trim(n / 1e8)}억`;
+  if (n >= 1e6) return `${Math.round(n / 1e4).toLocaleString('ko-KR')}만`;
+  if (n >= 1e4) return `${trim(n / 1e4)}만`;
+  return n.toLocaleString('ko-KR');
 }
 
 /** 날짜별 묶음 (최근 날짜 먼저) [{ date, items }] */
@@ -60,5 +87,5 @@ export function byDate(entries) {
   return [...map].map(([date, items]) => ({ date, items }));
 }
 
-/** 보는 사람 종류: 'public' 온 가족 | 'private' 나만 | 'some' 골라서 */
+/** 보는 사람 종류: 'public' 온 가족 | 'private' 나만 | 'some' 선택 */
 export const visibilityOf = (e) => (e?.is_public ? 'public' : (e?.shared_with || []).length ? 'some' : 'private');
