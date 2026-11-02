@@ -1,4 +1,6 @@
 // 가계부 계산 (DB/화면 모름)
+import { addDays as _addDays, parts as _parts, pad as _pad, daysInMonth as _dim, dow as _dow, KO_DOW as _KO_DOW } from './dates.js';
+import { shiftToBusinessDay } from './holidays.js';
 
 export const EXPENSE_CATS = [
   { id: '식비', icon: '🍚' },
@@ -99,3 +101,57 @@ export function byDate(entries) {
 
 /** 보는 사람 종류: 'public' 온 가족 | 'private' 나만 | 'some' 선택 */
 export const visibilityOf = (e) => (e?.is_public ? 'public' : (e?.shared_with || []).length ? 'some' : 'private');
+
+/* ---------- 반복 ---------- */
+
+export const SHIFT_LABEL = { none: '그대로', before: '앞 영업일', after: '다음 영업일' };
+
+/** 반복 설명: '매월 25일 · 쉬는 날이면 앞 영업일' */
+export function repeatLabel(r) {
+  const [, m, d] = _parts(r.start_date);
+  const base =
+    r.freq === 'weekly' ? `매주 ${_KO_DOW[_dow(r.start_date)]}요일`
+    : r.freq === 'monthly' ? (r.last_day ? '매월 말일' : `매월 ${d}일`)
+    : `매년 ${m}월 ${d}일`;
+  return r.shift && r.shift !== 'none' ? `${base} · 쉬는 날이면 ${SHIFT_LABEL[r.shift]}` : base;
+}
+
+/** 오늘이 속한 달부터 months 달 뒤 말일 (반복 내역을 미리 만들어 두는 끝) */
+export function horizonOf(today, months = 3) {
+  const [y, m] = _parts(today);
+  const t = new Date(y, m - 1 + months, 1);
+  return `${t.getFullYear()}-${_pad(t.getMonth() + 1)}-${_pad(_dim(t.getFullYear(), t.getMonth() + 1))}`;
+}
+
+/**
+ * 반복 규칙이 만드는 날짜들 (원래 날짜 기준으로 until 까지).
+ * → [{ repeat_date: 원래 날짜, entry_date: 쉬는 날이면 옮긴 날짜 }]
+ * extra: 가족이 직접 추가한 쉬는 날
+ */
+export function repeatOccurrences(r, until, extra = []) {
+  const end = r.end_date && r.end_date < until ? r.end_date : until;
+  const skip = new Set(r.skip_dates || []);
+  const out = [];
+  const push = (d) => {
+    if (d >= r.start_date && d <= end && !skip.has(d)) out.push({ repeat_date: d, entry_date: shiftToBusinessDay(d, r.shift, extra) });
+  };
+  const [sy, sm, sd] = _parts(r.start_date);
+  if (r.freq === 'weekly') {
+    for (let d = r.start_date, i = 0; d <= end && i < 1000; d = _addDays(d, 7), i++) push(d);
+  } else if (r.freq === 'monthly') {
+    for (let i = 0; i < 600; i++) {
+      const y = sy + Math.floor((sm - 1 + i) / 12);
+      const m = ((sm - 1 + i) % 12) + 1;
+      const first = `${y}-${_pad(m)}-01`;
+      if (first > end) break;
+      const dim = _dim(y, m);
+      push(`${y}-${_pad(m)}-${_pad(r.last_day ? dim : Math.min(sd, dim))}`);
+    }
+  } else if (r.freq === 'yearly') {
+    for (let y = sy; y < sy + 100; y++) {
+      if (`${y}-01-01` > end) break;
+      push(`${y}-${_pad(sm)}-${_pad(Math.min(sd, _dim(y, sm)))}`);
+    }
+  }
+  return out;
+}

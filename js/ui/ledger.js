@@ -4,8 +4,9 @@ import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
-import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, summarizeAsOf, byCategory, byMode, dailyTotals, byDate, visibilityOf } from '../logic/ledger.js';
-import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW } from '../logic/dates.js';
+import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, summarizeAsOf, byCategory, byMode, dailyTotals, byDate, visibilityOf, repeatLabel, repeatOccurrences, horizonOf, SHIFT_LABEL } from '../logic/ledger.js';
+import { holidayName, holidaysOf, LUNAR_UNTIL } from '../logic/holidays.js';
+import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW, dow, shortDate } from '../logic/dates.js';
 
 const view = { y: null, m: null, mode: 'all', selected: null }; // mode: 'all' | 'income' | 'expense', selected: 고른 날짜(없으면 달 전체)
 const MODES = [
@@ -40,7 +41,7 @@ function entryRow(e, me) {
   const inner = `<span class="lg-ico">${catIcon(e.kind, e.category)}</span>
     <span class="lg-body">
       <b>${esc(e.memo || e.category)}${String(e.entry_date) > todayISO() ? '<em class="lg-plan">예정</em>' : ''}</b>
-      <small>${esc(e.category)}${e.created_by && !mine ? ` · ${dotName(e.created_by)}` : ''} · ${visLabel(e)}</small>
+      <small>${e.repeat_id ? '🔁 ' : ''}${esc(e.category)}${e.created_by && !mine ? ` · ${dotName(e.created_by)}` : ''} · ${visLabel(e)}</small>
     </span>
     <span class="lg-amt ${e.kind}">${sign}${won(e.amount)}</span>`;
   return `<li class="lg-item">${
@@ -104,14 +105,16 @@ export function renderLedger() {
   // 달력: 칸마다 그날 수입(+)/지출(-) 합계
   const gridStart = startOfWeekSun(`${ym}-01`);
   const totals = dailyTotals(inMonth(state.ledger, ym));
+  const extra = A.ledgerHolidays();
   const cells = eachDay(gridStart, addDays(gridStart, 41))
     .map((d) => {
       const other = d.slice(0, 7) !== ym;
+      const hol = holidayName(d, extra);
       const t = !other && totals.get(d);
       const inc = t && view.mode !== 'expense' && t.income ? `<span class="lg-c income">+${compactWon(t.income)}</span>` : '';
       const exp = t && view.mode !== 'income' && t.expense ? `<span class="lg-c expense">-${compactWon(t.expense)}</span>` : '';
-      return `<button class="day${other ? ' other' : ''}${d === today ? ' today' : ''}${d === view.selected ? ' sel' : ''}"
-        data-act="ledger-pick" data-date="${d}" aria-label="${longDate(d)}${t ? ` 수입 ${won(t.income)} 지출 ${won(t.expense)}` : ''}">
+      return `<button class="day${other ? ' other' : ''}${d === today ? ' today' : ''}${d === view.selected ? ' sel' : ''}${hol || dow(d) === 0 ? ' hol' : ''}${dow(d) === 6 ? ' sat' : ''}"
+        data-act="ledger-pick" data-date="${d}" ${hol ? `title="${esc(hol)}"` : ''} aria-label="${longDate(d)}${hol ? ` ${esc(hol)}` : ''}${t ? ` 수입 ${won(t.income)} 지출 ${won(t.expense)}` : ''}">
         <span class="n">${Number(d.slice(8))}</span>${inc}${exp}
       </button>`;
     })
@@ -150,7 +153,9 @@ export function renderLedger() {
   ${catHtml}
   <div class="sec-head" style="margin-top:20px"><h2>${view.selected ? `${labelDate(view.selected, today)}${labelDate(view.selected, today).includes('월') ? '' : ` (${Number(view.selected.slice(5, 7))}/${Number(view.selected.slice(8))})`}` : '이 달'}${modeName} 내역</h2>
     ${view.selected ? '<button class="chip sm" data-act="ledger-pick-clear">달 전체 보기</button>' : `<span class="muted">${shown.length}개</span>`}</div>
+  ${view.selected && holidayName(view.selected, extra) ? `<p class="lg-holname">🎌 ${esc(holidayName(view.selected, extra))}</p>` : ''}
   ${groups || `<p class="empty">${!me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
+  <div class="lg-tools"><button class="chip sm" data-act="ledger-holidays">📅 공휴일 보기·추가</button></div>
   <p class="note lg-note">내 내역만 고칠 수 있어요. 보는 사람을 '나만'으로 한 내역은 다른 가족 휴대폰에는 보이지 않아요.</p>
   <button class="fab" data-act="ledger-add" aria-label="내역 추가">+</button>`;
 }
@@ -209,11 +214,67 @@ function openPinChange(me) {
   });
 }
 
-/* ---------- 내역 추가/수정 폼 ---------- */
-function openEntryForm(entry = null) {
+/* ---------- 내역 추가/수정 폼 (반복 설정 바꾸기도 같은 폼) ---------- */
+function repeatSection(rule, startDate) {
+  if (!state.repeatReady) {
+    return `<div class="field"><span class="label">반복</span><p class="note" style="margin:0">반복을 쓰려면 Supabase 에서 <b>supabase/ledger-repeat.sql</b> 을 한 번 실행해주세요.</p></div>`;
+  }
+  const freq = rule?.freq || 'none';
+  const shift = rule?.shift || 'none';
+  const radio = (name, v, label, on, extra = '') =>
+    `<label class="chip pick"><input type="radio" name="${name}" value="${v}" data-change="ledger-rep" ${on ? 'checked' : ''} ${extra}><span>${label}</span></label>`;
+  return `<div class="field lg-rep"><span class="label">반복</span>
+    <div class="chips">
+      ${rule ? '' : radio('freq', 'none', '안 함', freq === 'none')}
+      ${radio('freq', 'weekly', '매주', freq === 'weekly')}
+      ${radio('freq', 'monthly', '매월', freq === 'monthly')}
+      ${radio('freq', 'yearly', '매년', freq === 'yearly')}
+    </div>
+    <div class="lg-rep-opts" ${freq === 'none' ? 'hidden' : ''}>
+      <p class="rep-hint"></p>
+      <label class="chip pick rep-lastday" ${freq === 'monthly' ? '' : 'hidden'}><input type="checkbox" name="last_day" data-change="ledger-rep" ${rule?.last_day ? 'checked' : ''}><span>매월 말일로</span></label>
+      <div class="field"><span class="label">주말·공휴일이면</span><div class="chips">
+        ${['none', 'before', 'after'].map((v) => radio('shift', v, SHIFT_LABEL[v], shift === v)).join('')}
+      </div></div>
+      <div class="field"><span class="label">끝나는 날 (선택)</span><input type="date" name="rep_end" value="${rule?.end_date || ''}" min="${startDate}"></div>
+      <p class="rep-next"></p>
+    </div>
+  </div>`;
+}
+
+/** 반복 설명과 다음 날짜 미리보기를 폼 값에 맞춤 */
+function syncRep(f) {
+  const box = f.querySelector('.lg-rep');
+  if (!box) return;
+  const freq = f.elements.freq?.value || 'none';
+  box.querySelector('.lg-rep-opts').hidden = freq === 'none';
+  box.querySelector('.rep-lastday').hidden = freq !== 'monthly';
+  if (freq === 'none') return;
+  const r = {
+    freq,
+    start_date: f.elements.entry_date.value || todayISO(),
+    last_day: freq === 'monthly' && f.elements.last_day.checked,
+    shift: f.elements.shift.value || 'none',
+    end_date: f.elements.rep_end.value || null,
+  };
+  box.querySelector('.rep-hint').textContent = `🔁 ${repeatLabel(r)}`;
+  const today = todayISO();
+  const next = repeatOccurrences(r, horizonOf(today, 14), A.ledgerHolidays())
+    .filter((o) => o.entry_date >= today)
+    .slice(0, 3)
+    .map((o) => `${shortDate(o.entry_date)}(${KO_DOW[dow(o.entry_date)]})${o.entry_date !== o.repeat_date ? '*' : ''}`);
+  box.querySelector('.rep-next').textContent = next.length
+    ? `다음: ${next.join(', ')}${next.some((x) => x.endsWith('*')) ? '  (* 쉬는 날이라 옮긴 날)' : ''}`
+    : '';
+}
+
+function openEntryForm(entry = null, { rule = null } = {}) {
   const me = A.ledgerMe();
   if (!me) return openUnlock({ then: 'add' });
-  const e = entry;
+  const e = entry || rule;
+  const isRule = !!rule;
+  const myRule = entry?.repeat_id ? state.ledgerRepeats.find((r) => r.id === entry.repeat_id) : null;
+  const dateVal = isRule ? rule.start_date : entry?.entry_date || view.selected || todayISO();
   const kind = e?.kind || 'expense';
   const vis = e ? visibilityOf(e) : 'private';
   const shared = e?.shared_with || [];
@@ -225,8 +286,16 @@ function openEntryForm(entry = null) {
       .join('')}</div>`;
   const others = state.members.filter((m) => m.id !== me);
   openSheet({
-    title: e ? '내역 수정' : '내역 추가',
-    body: `<form data-form="ledger" data-id="${e ? e.id : ''}" autocomplete="off">
+    title: isRule ? '반복 설정 바꾸기' : e ? '내역 수정' : '내역 추가',
+    body: `<form data-form="ledger" data-id="${entry ? entry.id : ''}" data-rule="${isRule ? rule.id : ''}" autocomplete="off">
+      ${
+        entry?.repeat_id
+          ? `<div class="lg-rep-box"><b>🔁 ${myRule ? esc(repeatLabel(myRule)) : '반복 내역'}</b>
+            <small>여기서 저장·삭제하면 이 날짜 내역만 바뀌어요.</small>
+            ${myRule ? `<span class="lg-rep-acts"><button type="button" class="chip sm" data-act="ledger-rep-edit" data-id="${myRule.id}">반복 설정 바꾸기</button><button type="button" class="chip sm" data-act="ledger-rep-stop" data-id="${myRule.id}">반복 그만하기</button></span>` : ''}</div>`
+          : ''
+      }
+      ${isRule ? '<p class="note" style="margin-top:0">바꾸면 오늘 이후 내역이 새 설정으로 다시 만들어져요. 지난 내역과 따로 고친 내역은 그대로예요.</p>' : ''}
       <div class="seg wide lg-kind">
         <label><input type="radio" name="kind" value="expense" data-change="ledger-kind" ${kind === 'expense' ? 'checked' : ''}><span>지출</span></label>
         <label><input type="radio" name="kind" value="income" data-change="ledger-kind" ${kind === 'income' ? 'checked' : ''}><span>수입</span></label>
@@ -234,7 +303,7 @@ function openEntryForm(entry = null) {
       <div class="lg-amt-field"><input class="big-input" name="amount" inputmode="numeric" required maxlength="16" placeholder="금액" value="${e ? Number(e.amount).toLocaleString('ko-KR') : ''}" data-change="ledger-amount"><span>원</span></div>
       <div class="field"><span class="label">분류</span>${catChips(EXPENSE_CATS, 'expense')}${catChips(INCOME_CATS, 'income')}</div>
       <div class="grid2">
-        <div class="field"><span class="label">날짜</span><input type="date" name="entry_date" required value="${e?.entry_date || view.selected || todayISO()}"></div>
+        <div class="field"><span class="label">${isRule ? '시작 날짜' : '날짜'}</span><input type="date" name="entry_date" required value="${dateVal}" data-change="ledger-rep"></div>
         <div class="field"><span class="label">내용 (선택)</span><input name="memo" maxlength="200" placeholder="예: 마트 장보기" value="${esc(e?.memo)}"></div>
       </div>
       <div class="field"><span class="label">보는 사람</span>
@@ -247,11 +316,47 @@ function openEntryForm(entry = null) {
           .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="checkbox" name="share" value="${m.id}" ${shared.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
           .join('')}</div>
       </div>
+      ${entry ? '' : repeatSection(rule, dateVal)}
       <div class="form-actions">
-        ${e ? `<button type="button" class="btn danger" data-act="ledger-delete" data-id="${e.id}">삭제</button>` : ''}
+        ${entry ? `<button type="button" class="btn danger" data-act="ledger-delete" data-id="${entry.id}">${entry.repeat_id ? '이 날만 삭제' : '삭제'}</button>` : ''}
         <button type="submit" class="btn primary">${e ? '저장' : '추가'}</button>
       </div></form>`,
-    onMount: (el) => !e && setTimeout(() => el.querySelector('[name=amount]').focus(), 60),
+    onMount: (el) => {
+      syncRep(el.querySelector('form'));
+      if (!e) setTimeout(() => el.querySelector('[name=amount]').focus(), 60);
+    },
+  });
+}
+
+/* ---------- 공휴일 보기·추가 ---------- */
+function openHolidays() {
+  const year = view.y || Number(todayISO().slice(0, 4));
+  const extra = A.ledgerHolidays();
+  const builtIn = [...holidaysOf(year)].map(([date, name]) => ({ date, name, own: false }));
+  const mine = extra.filter((h) => h.date.startsWith(`${year}-`)).map((h) => ({ ...h, own: true }));
+  const list = [...builtIn, ...mine].sort((a, b) => a.date.localeCompare(b.date));
+  openSheet({
+    title: `${year}년 공휴일`,
+    body: `<div class="lg-hol">
+      <p class="note" style="margin-top:0">반복 내역을 '앞/다음 영업일'로 옮길 때 이 날들과 토·일요일을 쉬는 날로 봐요.
+        ${year > LUNAR_UNTIL ? `<br><b>${LUNAR_UNTIL + 1}년부터는 설날·추석·부처님오신날이 들어 있지 않아요.</b> 아래에서 직접 추가해주세요.` : ''}</p>
+      <ul class="lg-hol-list">${list
+        .map(
+          (h) => `<li><span>${shortDate(h.date)} (${KO_DOW[dow(h.date)]})</span><b>${esc(h.name || '쉬는 날')}</b>${
+            h.own ? `<button class="chip sm" data-act="ledger-hol-del" data-date="${h.date}">지우기</button>` : ''
+          }</li>`
+        )
+        .join('')}</ul>
+      ${
+        state.settingsReady
+          ? `<form data-form="ledger-hol" class="lg-hol-add" autocomplete="off">
+              <span class="label">임시공휴일·선거일 등 직접 추가 (가족 모두에게 적용)</span>
+              <div class="grid2"><input type="date" name="date" required><input name="name" maxlength="20" placeholder="이름 (예: 임시공휴일)"></div>
+              <div class="form-actions"><button type="submit" class="btn primary">추가</button></div>
+            </form>`
+          : '<p class="note">쉬는 날을 직접 추가하려면 Supabase 에서 <b>supabase/space-settings.sql</b> 을 실행해주세요.</p>'
+      }
+    </div>`,
   });
 }
 
@@ -317,6 +422,35 @@ export const actions = {
       toast(errMsg(err));
     }
   },
+  'ledger-holidays': () => openHolidays(),
+  'ledger-hol-del': async (el) => {
+    try {
+      await A.saveLedgerHolidays(A.ledgerHolidays().filter((h) => h.date !== el.dataset.date));
+      openHolidays();
+      toast('지웠어요');
+    } catch (err) {
+      toast(errMsg(err));
+    }
+  },
+  'ledger-rep-edit': (el) => {
+    const rule = state.ledgerRepeats.find((r) => r.id === el.dataset.id);
+    if (rule) openEntryForm(null, { rule });
+  },
+  'ledger-rep-stop': async (el) => {
+    const ok = await confirmDialog({
+      title: '반복을 그만할까요?',
+      message: '지난 내역은 남고, 오늘 이후의 예정 내역은 지워져요.',
+      choices: [{ label: '취소', value: false }, { label: '그만하기', value: true, kind: 'danger' }],
+    });
+    if (!ok) return;
+    try {
+      await A.stopLedgerRepeat(el.dataset.id);
+      closeSheet();
+      toast('반복을 그만했어요');
+    } catch (err) {
+      writeError(err);
+    }
+  },
   'ledger-delete': async (el) => {
     const ok = await confirmDialog({ title: '이 내역을 삭제할까요?', choices: [{ label: '취소', value: false }, { label: '삭제', value: true, kind: 'danger' }] });
     if (!ok) return;
@@ -332,6 +466,7 @@ export const actions = {
 
 export const changes = {
   'ledger-who': (el) => syncWho(el.closest('form')),
+  'ledger-rep': (el) => syncRep(el.closest('form')),
   'ledger-kind': (el) => {
     const f = el.closest('form');
     const k = f.elements.kind.value;
@@ -351,6 +486,20 @@ export const changes = {
 const pinOk = (s) => /^\d{4}$/.test(s || '');
 
 export const forms = {
+  'ledger-hol': async (f) => {
+    const fd = new FormData(f);
+    const date = fd.get('date');
+    if (!date) return toast('날짜를 골라주세요');
+    const name = (fd.get('name') || '').trim() || '쉬는 날';
+    try {
+      await A.saveLedgerHolidays([...A.ledgerHolidays().filter((h) => h.date !== date), { date, name }]);
+      [view.y] = parts(date);
+      openHolidays();
+      toast('추가했어요. 반복 내역 날짜도 맞춰져요');
+    } catch (err) {
+      toast(errMsg(err));
+    }
+  },
   'ledger-unlock': async (f) => {
     const fd = new FormData(f);
     const who = fd.get('who');
@@ -427,16 +576,28 @@ export const forms = {
       shared_with: share,
       created_by: me,
     };
+    const freq = fd.get('freq') || 'none';
+    let rule = null;
+    if (!f.dataset.id && freq !== 'none') {
+      const end = fd.get('rep_end') || null;
+      if (end && end < p.entry_date) return toast('끝나는 날이 시작 날짜보다 빠를 수 없어요');
+      const { entry_date, ...rest } = p;
+      rule = { ...rest, freq, start_date: entry_date, end_date: end, last_day: freq === 'monthly' && !!fd.get('last_day'), shift: fd.get('shift') || 'none' };
+    }
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
     try {
-      if (f.dataset.id) await A.saveLedger(f.dataset.id, p);
+      if (f.dataset.rule) await A.saveLedgerRepeat(f.dataset.rule, rule);
+      else if (rule) await A.addLedgerRepeat(rule);
+      else if (f.dataset.id) await A.saveLedger(f.dataset.id, p);
       else await A.addLedger(p);
-      [view.y, view.m] = parts(p.entry_date); // 방금 적은 달이 보이게
-      if (view.selected && view.selected !== p.entry_date) view.selected = p.entry_date;
+      if (!f.dataset.rule) {
+        [view.y, view.m] = parts(p.entry_date); // 방금 적은 달이 보이게
+        if (view.selected && view.selected !== p.entry_date) view.selected = p.entry_date;
+      } else view.selected = null; // 반복 설정을 바꾸면 날짜가 옮겨질 수 있어서 달 전체로
       closeSheet();
       set();
-      toast(f.dataset.id ? '저장했어요' : '추가했어요');
+      toast(f.dataset.rule ? '반복 설정을 바꿨어요' : rule ? '반복을 만들었어요. 3개월 앞까지 미리 보여요' : f.dataset.id ? '저장했어요' : '추가했어요');
     } catch (err) {
       btn.disabled = false;
       writeError(err);
