@@ -16,9 +16,12 @@ export const state = {
   purchasesReady: true, // purchases.sql 이 적용돼 있는지
   foodDays: [], // 외식하는 날 [{ plan_date, kind: 'out' }]
   outingReady: true, // food-outing.sql 이 적용돼 있는지
+  ledger: [], // 가계부 내역 (서버가 이 기기에 보여도 되는 것만 줌)
+  ledgerStatus: [], // [{ member_id, has_pin, is_me }]
+  ledgerReady: true, // ledger.sql 이 적용돼 있는지
   events: [],
   eventsReady: true, // events.sql 이 적용돼 있는지
-  tab: 'home', // 'home' | 'tasks' | 'schedule' | 'food'
+  tab: 'home', // 'home' | 'tasks' | 'schedule' | 'food' | 'ledger'
   tripId: null, // 외출/여행 상세 화면
 };
 

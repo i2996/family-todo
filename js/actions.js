@@ -9,6 +9,7 @@ import * as foodDb from './data/food.js';
 import * as eventsDb from './data/events.js';
 import * as purchasesDb from './data/purchases.js';
 import * as plansDb from './data/plans.js';
+import * as ledgerDb from './data/ledger.js';
 import * as settingsDb from './data/settings.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
@@ -21,7 +22,7 @@ const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food, ev, days, buy, plan, cfg] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev, days, buy, plan, cfg, money] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
@@ -32,8 +33,9 @@ export async function loadAll() {
     loadPurchases(),
     loadPlans(),
     loadSettings(),
+    loadLedger(),
   ]);
-  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan, ...cfg });
+  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan, ...cfg, ...money });
 }
 
 /** 가족 공용 설정 테이블(space-settings.sql)이 없어도 앱은 정상 동작 (설정은 기본값) */
@@ -44,6 +46,17 @@ async function loadSettings() {
   } catch (e) {
     console.warn('가족 설정을 불러오지 못했어요 (supabase/space-settings.sql 실행 필요)', e);
     return { settings: {}, settingsReady: false };
+  }
+}
+
+/** 가계부(ledger.sql)가 없어도 나머지 앱은 정상 동작. 보이는 내역은 서버가 PIN 기준으로 걸러줌 */
+async function loadLedger() {
+  try {
+    const [ledger, ledgerStatus] = await Promise.all([ledgerDb.listEntries(sid()), ledgerDb.status(sid())]);
+    return { ledger, ledgerStatus, ledgerReady: true };
+  } catch (e) {
+    console.warn('가계부를 불러오지 못했어요 (supabase/ledger.sql 실행 필요)', e);
+    return { ledger: [], ledgerStatus: [], ledgerReady: false };
   }
 }
 
@@ -112,6 +125,7 @@ export async function refresh(table) {
     case 'purchases': return set(await loadPurchases());
     case 'trip_plans': return set(await loadPlans());
     case 'space_settings': return set(await loadSettings());
+    case 'ledger_entries': return set(await loadLedger());
     default: return loadAll();
   }
 }
@@ -154,6 +168,8 @@ export async function removeMember(id) {
       ...(Array.isArray(e.shared_with) ? { shared_with: e.shared_with.filter((x) => x !== id) } : {}),
     })),
     plans: state.plans.map((p) => (p.created_by === id ? { ...p, created_by: null } : p)),
+    ledger: state.ledger.map((e) => ({ ...e, created_by: e.created_by === id ? null : e.created_by, shared_with: (e.shared_with || []).filter((x) => x !== id) })),
+    ledgerStatus: state.ledgerStatus.filter((x) => x.member_id !== id),
     purchases: state.purchases.map((p) => ({ ...p, requested_by: p.requested_by === id ? null : p.requested_by, decided_by: p.decided_by === id ? null : p.decided_by })),
   });
 }
@@ -571,6 +587,42 @@ export async function regeneratePlan(from, to, byKey) {
     ],
   });
   afterPlanChange();
+}
+
+/* ---------- 가계부 ---------- */
+/** 이 기기가 PIN 을 푼 구성원 id (서버 기준, 없으면 null) */
+export const ledgerMe = () => {
+  const r = state.ledgerStatus.find((x) => x.is_me);
+  return r && state.members.some((m) => m.id === r.member_id) ? r.member_id : null;
+};
+export const hasPin = (memberId) => !!state.ledgerStatus.find((x) => x.member_id === memberId)?.has_pin;
+export const reloadLedger = async () => set(await loadLedger());
+export async function addLedger(p) {
+  const row = await ledgerDb.insertEntry(sid(), p);
+  set({ ledger: [row, ...state.ledger] });
+}
+export async function saveLedger(id, p) {
+  const row = await ledgerDb.updateEntry(id, p);
+  set({ ledger: state.ledger.map((e) => (e.id === id ? row : e)) });
+}
+export async function removeLedger(id) {
+  await ledgerDb.deleteEntry(id);
+  set({ ledger: state.ledger.filter((e) => e.id !== id) });
+}
+/** PIN 으로 열기. 'ok' 이면 그 사람에게 보이는 내역으로 다시 불러옴 */
+export async function unlockLedger(memberId, pin) {
+  const r = await ledgerDb.unlock(memberId, pin);
+  if (r === 'ok') await reloadLedger();
+  return r;
+}
+export async function setLedgerPin(memberId, pin, oldPin = null) {
+  const r = await ledgerDb.setPin(memberId, pin, oldPin);
+  if (r === 'ok') await reloadLedger();
+  return r;
+}
+export async function lockLedger() {
+  await ledgerDb.lock(sid());
+  await reloadLedger();
 }
 
 /* ---------- 알림 (웹 푸시) ---------- */
