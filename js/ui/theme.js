@@ -6,19 +6,10 @@ import { prefs } from '../prefs.js';
 const STACK_TAIL = `'Malgun Gothic', 'Apple SD Gothic Neo', system-ui, sans-serif`;
 const loaded = new Set();
 
-// 기기에 기본으로 들어 있는 글꼴(시스템 글꼴). fonts.js 를 건드리지 않아도 목록에 항상 들어가요.
-// (fonts.js 에 id 가 'system' 인 항목을 직접 만들면 그걸 우선 사용)
-const SYSTEM_FONT = {
-  id: 'system',
-  label: '시스템 글꼴 (기기 기본)',
-  stack: "system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
-};
-/** '기본' 바로 아래에 시스템 글꼴을 끼워 넣은 전체 글꼴 목록 */
-function allFonts() {
-  if (FONTS.some((f) => f.id === SYSTEM_FONT.id)) return FONTS;
-  const i = FONTS.findIndex((f) => f.id === 'default');
-  return [...FONTS.slice(0, i + 1), SYSTEM_FONT, ...FONTS.slice(i + 1)];
-}
+// 글꼴 목록은 fonts.js 그대로.
+// (예전의 '시스템 글꼴' 항목은 뺐어요: 웹/앱(WebView)에서는 폰 설정에서 고른 글꼴이 아니라
+//  OS 기본 글꼴만 나와서 의미가 없어요. 그걸 골라뒀던 기기는 자동으로 '기본' 글꼴로 돌아가요.)
+const allFonts = () => FONTS;
 export const listFonts = () => allFonts();
 export const fontById = (id) => allFonts().find((f) => f.id === id) || allFonts()[0];
 /** 지금 쓰는 글꼴: { body: 내용, head: 제목 } */
