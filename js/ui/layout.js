@@ -7,12 +7,14 @@ import { renderTripDetail } from './trips.js';
 import { tripById } from './components.js';
 import { renderSchedule } from './schedule.js';
 import { renderFood } from './food.js';
+import { renderLedger } from './ledger.js';
 
 const TABS = [
   { id: 'home', ico: '🏠', label: '홈' },
   { id: 'tasks', ico: '✅', label: '할 일' },
   { id: 'schedule', ico: '📅', label: '일정' },
   { id: 'food', ico: '🍱', label: '먹거리' },
+  { id: 'ledger', ico: '💰', label: '가계부' },
 ];
 
 export function mountShell() {
@@ -38,7 +40,7 @@ export function render() {
   document.getElementById('brand').textContent = `🫶🏻 ${state.space.name}`;
   const screens = { home: renderHome, tasks: renderTasks,
     // 외출/여행은 일정 탭에 흡수: 여행을 누르면 일정 탭 안에서 상세(준비할 일)가 열림
-    schedule: () => (state.tripId && tripById(state.tripId) ? renderTripDetail(tripById(state.tripId)) : renderSchedule()), food: renderFood };
+    schedule: () => (state.tripId && tripById(state.tripId) ? renderTripDetail(tripById(state.tripId)) : renderSchedule()), food: renderFood, ledger: renderLedger };
   view.innerHTML = (screens[state.tab] || renderHome)();
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('on', b.dataset.tab === state.tab));
 }

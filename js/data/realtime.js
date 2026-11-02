@@ -8,6 +8,7 @@ const EVENT_TABLES = ['events'];
 const SETTING_TABLES = ['space_settings']; // space-settings.sql 을 안 돌려도 다른 동기화가 죽지 않게 따로 구독
 const PLAN_TABLES = ['trip_plans']; // plans.sql 을 안 돌려도 다른 동기화가 죽지 않게 따로 구독
 const PURCHASE_TABLES = ['purchases']; // purchases.sql 을 안 돌려도 다른 동기화가 죽지 않게 따로 구독
+const LEDGER_TABLES = ['ledger_entries']; // ledger.sql 을 안 돌려도 다른 동기화가 죽지 않게 따로 구독
 const OUTING_TABLES = ['food_days']; // food-outing.sql 을 안 돌려도 다른 동기화가 죽지 않게 따로 구독
 
 function open(name, sid, tables, onChange) {
@@ -30,6 +31,7 @@ export function subscribeSpace(sid, onChange) {
     open(`purchases:${sid}`, sid, PURCHASE_TABLES, onChange),
     open(`plans:${sid}`, sid, PLAN_TABLES, onChange),
     open(`settings:${sid}`, sid, SETTING_TABLES, onChange),
+    open(`ledger:${sid}`, sid, LEDGER_TABLES, onChange),
   ];
   return () => channels.forEach((c) => supabase.removeChannel(c));
 }

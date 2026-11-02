@@ -18,6 +18,7 @@ import { actions as foodActions, forms as foodForms, changes as foodChanges } fr
 import { actions as scheduleActions, forms as scheduleForms, changes as scheduleChanges } from './ui/schedule.js';
 import { actions as buyActions, forms as buyForms } from './ui/purchases.js';
 import { actions as planActions, forms as planForms } from './ui/plans.js';
+import { actions as ledgerActions, forms as ledgerForms, changes as ledgerChanges } from './ui/ledger.js';
 import { openTaskForm, actions as formActions, forms as taskForms, changes as formChanges } from './ui/taskForm.js';
 import { actions as settingsActions, forms as settingsForms, changes as settingsChanges } from './ui/settings.js';
 
@@ -57,10 +58,10 @@ const coreActions = {
 
 const actions = {
   ...layoutActions, ...gateActions, ...sheetActions, ...homeActions, ...tasksActions,
-  ...tripActions, ...foodActions, ...scheduleActions, ...buyActions, ...planActions, ...formActions, ...settingsActions, ...coreActions,
+  ...tripActions, ...foodActions, ...scheduleActions, ...buyActions, ...planActions, ...ledgerActions, ...formActions, ...settingsActions, ...coreActions,
 };
-const forms = { ...gateForms, ...tripForms, ...foodForms, ...scheduleForms, ...buyForms, ...planForms, ...taskForms, ...settingsForms };
-const changes = { ...formChanges, ...settingsChanges, ...foodChanges, ...scheduleChanges };
+const forms = { ...gateForms, ...tripForms, ...foodForms, ...scheduleForms, ...buyForms, ...planForms, ...ledgerForms, ...taskForms, ...settingsForms };
+const changes = { ...formChanges, ...settingsChanges, ...foodChanges, ...scheduleChanges, ...ledgerChanges };
 
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-act]');

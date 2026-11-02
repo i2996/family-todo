@@ -1,0 +1,48 @@
+/* 가계부 탭 전용 스타일 (style.css 는 건드리지 않고 이 파일만 추가) */
+body[data-tab='ledger'] { --accent: var(--lav); --accent-d: var(--lav-d); --accent-soft: var(--lav-soft); }
+.nav-item[data-tab='ledger'].on { background: var(--lav); }
+
+.lg-lock { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+  padding: 10px 12px; margin-bottom: 14px; border-radius: 16px; border: 2px dashed var(--accent-d); background: var(--accent-soft); font-size: 15px; }
+.lg-lock.on { border-style: solid; border-color: var(--line); background: var(--paper); }
+.lg-lock > span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+.lg-lock-acts { display: flex; gap: 6px; }
+.lg-open { border-color: var(--accent-d); background: var(--accent); }
+
+.lg-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.lg-sum > div { padding: 10px 4px; border-radius: 16px; background: var(--paper); border: 2px solid var(--line); text-align: center; min-width: 0; }
+.lg-sum small { display: block; color: var(--muted); font-size: 13px; }
+.lg-sum b { display: block; font-weight: 400; font-family: var(--font-head); font-size: clamp(12px, 3.6vw, 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -.3px; }
+.income { color: var(--sky-d); }
+.expense { color: var(--rose-d); }
+
+.lg-cats { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.lg-cats li { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 8px; font-size: 14px; }
+.lg-cat-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-bar { height: 10px; border-radius: 6px; background: var(--accent-soft); overflow: hidden; }
+.lg-bar i { display: block; height: 100%; border-radius: 6px; background: var(--accent-d); opacity: .55; }
+.lg-cat-amt { color: var(--muted); font-size: 13px; }
+
+.lg-day { margin-top: 12px; }
+.lg-day-head { font-size: 15px; padding: 3px 10px; border-radius: 12px; background: var(--accent-soft); }
+.lg-list > li + li { border-top: 1.5px dotted var(--line); }
+.lg-main { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 9px 2px; min-height: 52px; }
+.lg-ico { flex: none; font-size: 22px; }
+.lg-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lg-body b { font-weight: 400; font-size: 16px; line-height: 1.35; word-break: break-word; }
+.lg-body small { color: var(--muted); font-size: 12.5px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.lg-amt { flex: none; font-family: var(--font-head); font-size: 16px; }
+.lg-amt.income { color: var(--sky-d); }
+.lg-amt.expense { color: var(--ink); }
+.lg-note { margin-top: 18px; font-size: 13px; }
+
+/* 폼: 지출/수입 선택 (라디오를 세그먼트 버튼처럼) */
+.lg-kind label { flex: 1; display: flex; }
+.lg-kind input { position: absolute; opacity: 0; pointer-events: none; }
+.lg-kind span { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 44px; font-size: 16px; color: var(--muted); cursor: pointer; }
+.lg-kind input:checked + span { background: var(--accent); color: var(--ink); }
+.lg-kind input:focus-visible + span { outline: 2px solid var(--accent-d); outline-offset: -2px; }
+.lg-amt-field { display: flex; align-items: center; gap: 8px; }
+.lg-amt-field .big-input { flex: 1; text-align: right; }
+.lg-amt-field span { font-size: 18px; }
+.pin-input { letter-spacing: .5em; font-size: 22px; text-align: center; max-width: 180px; }
