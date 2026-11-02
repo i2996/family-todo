@@ -86,3 +86,9 @@ body[data-tab='ledger'] { --accent: var(--lav); --accent-d: var(--lav-d); --acce
 .lg-search input:focus { outline: none; border-color: var(--accent-d); }
 .lg-found { display: flex; gap: 12px; flex-wrap: wrap; margin: 6px 2px 0; font-size: 14px; }
 .rep-mday { margin-top: 4px; }
+.lg-search { flex-wrap: wrap; }
+.lg-period { flex-basis: 100%; gap: 6px; }
+.lg-period .chip { min-height: 34px; padding: 0 12px; font-size: 14px; }
+.lg-range { flex-basis: 100%; display: flex; align-items: center; gap: 6px; }
+.lg-range input { flex: 1; min-width: 0; }
+.lg-found .muted { color: var(--muted); }

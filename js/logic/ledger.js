@@ -204,3 +204,23 @@ export function searchEntries(entries, query, nameOf = () => '') {
     return words.every((w) => hay.includes(w.replace(/원$/, '')));
   });
 }
+
+/**
+ * 검색 기간. sp: 'month' 보고 있는 달(기본) | 'year' 그 해 | 'all' 전체 | 'custom' 직접 지정(from~to)
+ * ym: 보고 있는 달 'YYYY-MM' → { from, to, label } (전체면 from/to 가 null)
+ */
+export function periodRange(sp, ym, from = '', to = '') {
+  const [y, m] = ym.split('-').map(Number);
+  if (sp === 'all') return { from: null, to: null, label: '전체 기간' };
+  if (sp === 'year') return { from: `${y}-01-01`, to: `${y}-12-31`, label: `${y}년` };
+  if (sp === 'custom' && from && to) {
+    const [a, b] = from <= to ? [from, to] : [to, from];
+    const dot = (d) => d.replaceAll('-', '.');
+    return { from: a, to: b, label: `${dot(a)} ~ ${dot(b)}` };
+  }
+  return { from: `${ym}-01`, to: `${ym}-${_pad(_dim(y, m))}`, label: `${y}년 ${m}월` };
+}
+
+/** 기간 안의 내역 (from/to 가 없으면 끝없음) */
+export const inRange = (entries, from, to) =>
+  entries.filter((e) => (!from || String(e.entry_date) >= from) && (!to || String(e.entry_date) <= to));
