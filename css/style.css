@@ -309,7 +309,7 @@ code { background: var(--lav); padding: 1px 6px; border-radius: 6px; }
 }
 .dialog { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, 90vw); background: var(--paper); border-radius: 24px; border: 2px dashed var(--line); padding: 22px 20px 16px; }
 .dialog h3 { font-size: 19px; margin-bottom: 6px; }
-.dialog p { margin: 0 0 8px; color: var(--muted); font-size: 15px; }
+.dialog p { margin: 0 0 8px; color: var(--muted); font-size: 15px; white-space: pre-line; }
 .dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 .dialog-actions .btn { min-height: 44px; padding: 0 16px; }
 @keyframes rise { from { transform: translateY(40px); opacity: .4; } }

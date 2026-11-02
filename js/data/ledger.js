@@ -43,3 +43,15 @@ export const upsertRepeatEntries = async (sid, rows) =>
 /** 그 반복의 오늘 이후 내역 중 따로 고치지 않은 것 지우기 */
 export const deleteFutureOfRepeat = async (repeatId, today) =>
   unwrap(await supabase.from('ledger_entries').delete().eq('repeat_id', repeatId).gt('entry_date', today).eq('repeat_locked', false));
+
+/* ---------- 내 가계부 백업 / 복원 ---------- */
+/** 내 내역과 반복을 모두 지우기 (서버가 내 것만 지우게 해줌) */
+export async function deleteMine(sid, me, { repeats = true } = {}) {
+  unwrap(await supabase.from('ledger_entries').delete().eq('space_id', sid).eq('created_by', me));
+  if (repeats) unwrap(await supabase.from('ledger_repeats').delete().eq('space_id', sid).eq('created_by', me));
+}
+
+/** 여러 줄 한꺼번에 넣기 (한 번에 500줄씩) */
+export async function insertMany(table, rows) {
+  for (let i = 0; i < rows.length; i += 500) unwrap(await supabase.from(table).insert(rows.slice(i, i + 500)));
+}
