@@ -41,7 +41,7 @@ const MENU = [
   {
     id: 'data', icon: '💾', title: '데이터',
     items: [
-      { act: 'menu-backup', icon: '💾', title: '데이터 백업', sub: 'JSON 파일로 내려받기' },
+      { act: 'menu-backup', icon: '💾', title: '데이터 백업', sub: 'JSON 파일로 내려받기 (가계부는 가계부 탭에서 따로)' },
       { act: 'menu-restore', icon: '♻️', title: '데이터 복원', sub: '백업 파일로 되돌리기' },
     ],
   },
@@ -479,12 +479,12 @@ export const changes = {
     }
     const ok = await confirmDialog({
       title: '이 백업으로 복원할까요?',
-      message: `현재 데이터는 모두 사라지고 백업 내용(할 일 ${data.tasks?.length ?? 0}개)으로 바뀌어요. 복원 전에 현재 데이터를 자동으로 백업 파일로 내려받아요.`,
+      message: `현재 데이터는 모두 사라지고 백업 내용(할 일 ${data.tasks?.length ?? 0}개)으로 바뀌어요. 복원 전에 현재 데이터를 자동으로 백업 파일로 내려받아요.\n\n가계부는 이 백업에 들어 있지 않아요. 지금 공간의 가계부가 있다면 각자 가계부 탭에서 '💾 내 가계부 백업'을 먼저 해두세요.`,
       choices: [{ label: '취소', value: false }, { label: '복원하기', value: true, kind: 'danger' }],
     });
     if (!ok) return;
     try {
-      await doBackup('family-todo-복원전');
+      await doBackup('family-todo-before-restore'); // 파일 이름은 영문으로 (한글은 일부 기기에서 'download' 로 바뀜)
       await A.restoreBackup(data);
       closeSheet();
       toast('복원했어요');

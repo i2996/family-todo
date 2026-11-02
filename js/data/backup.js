@@ -7,6 +7,7 @@ import * as foodDb from './food.js';
 import * as eventsDb from './events.js';
 import * as purchasesDb from './purchases.js';
 import * as plansDb from './plans.js';
+import * as settingsDb from './settings.js';
 
 export async function exportAll(space) {
   const sid = space.id;
@@ -46,6 +47,13 @@ export async function exportAll(space) {
   } catch {
     /* purchases.sql 을 아직 안 돌린 경우 */
   }
+  let cfg = {};
+  try {
+    // 가족 공용 설정 (직접 추가한 공휴일, 해동 알림 설정 등). 구성원 id 는 들어 있지 않아요
+    cfg = { space_settings: (await settingsDb.listSettings(sid)).map((r) => ({ key: r.key, value: r.value })) };
+  } catch {
+    /* space-settings.sql 을 아직 안 돌린 경우 */
+  }
   return {
     app: 'family-todo',
     version: 1,
@@ -59,6 +67,7 @@ export async function exportAll(space) {
     ...ev,
     ...buy,
     ...plan,
+    ...cfg,
   };
 }
 
@@ -77,7 +86,7 @@ export function downloadJson(obj, filename) {
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj[k] ?? null]));
 
 /** 현재 공간의 데이터를 모두 지우고 백업 내용으로 교체 (id 는 새로 발급해서 충돌 방지) */
-export async function importAll(sid, data, { includeFood = false, includeEvents = false, includePurchases = false, includePlans = false } = {}) {
+export async function importAll(sid, data, { includeFood = false, includeEvents = false, includePurchases = false, includePlans = false, includeSettings = false } = {}) {
   if (!data || data.app !== 'family-todo' || !Array.isArray(data.members) || !Array.isArray(data.tasks)) {
     throw new Error('가족 할 일 백업 파일이 아니에요.');
   }
@@ -229,5 +238,13 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
     }));
     unwrap(await supabase.from('trip_plans').delete().eq('space_id', sid));
     if (rows.length) unwrap(await supabase.from('trip_plans').insert(rows));
+  }
+
+  // 가족 공용 설정: 백업에 들어 있을 때만 교체
+  if (includeSettings && Array.isArray(data.space_settings)) {
+    const now = new Date().toISOString();
+    const rows = data.space_settings.filter((r) => r && r.key).map((r) => ({ space_id: sid, key: r.key, value: r.value ?? null, updated_at: now }));
+    unwrap(await supabase.from('space_settings').delete().eq('space_id', sid));
+    if (rows.length) unwrap(await supabase.from('space_settings').insert(rows));
   }
 }

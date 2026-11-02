@@ -720,6 +720,67 @@ export async function saveLedgerHolidays(list) {
   await syncLedgerRepeats().catch(() => {});
 }
 
+/* ---------- 내 가계부 백업 / 복원 ---------- */
+/** PIN 을 연 사람의 가계부(내 내역 + 내 반복)를 백업 파일 모양으로 */
+export function exportMyLedger() {
+  const me = ledgerMe();
+  if (!me) throw new Error('먼저 가계부를 열어주세요');
+  const name = state.members.find((m) => m.id === me)?.name || '';
+  return {
+    app: 'family-todo-ledger',
+    version: 1,
+    exported_at: new Date().toISOString(),
+    owner: { id: me, name },
+    members: state.members.map((m) => ({ id: m.id, name: m.name })), // 보는 사람을 새 가족 공간의 같은 이름으로 옮기는 데 씀
+    entries: state.ledger.filter((e) => e.created_by === me),
+    repeats: state.ledgerRepeats.filter((r) => r.created_by === me),
+  };
+}
+
+/**
+ * 내 가계부 복원: 지금 내 내역·반복을 지우고 백업 내용으로 바꾼다. (다른 가족 내역은 그대로)
+ * 보는 사람은 이름이 같은 구성원으로 옮기고, 없는 사람은 뺀다.
+ */
+export async function restoreMyLedger(data) {
+  const me = ledgerMe();
+  if (!me) throw new Error('먼저 가계부를 열어주세요');
+  if (!data || data.app !== 'family-todo-ledger' || !Array.isArray(data.entries)) throw new Error('가계부 백업 파일이 아니에요.');
+  const nameToNew = new Map(state.members.map((m) => [m.name, m.id]));
+  const oldToName = new Map((data.members || []).map((m) => [m.id, m.name]));
+  const mapMember = (id) => (id === data.owner?.id ? me : nameToNew.get(oldToName.get(id)) || null);
+  const mapShare = (ids) => [...new Set((ids || []).map(mapMember).filter((id) => id && id !== me))];
+  const withRepeats = state.repeatReady;
+
+  const repeatMap = new Map();
+  const repeats = withRepeats
+    ? (data.repeats || []).map((r) => {
+        const id = crypto.randomUUID();
+        repeatMap.set(r.id, id);
+        return {
+          id, space_id: sid(), created_by: me, kind: r.kind, amount: r.amount, category: r.category, memo: r.memo ?? null,
+          is_public: !!r.is_public, shared_with: mapShare(r.shared_with), freq: r.freq, start_date: r.start_date,
+          end_date: r.end_date ?? null, last_day: !!r.last_day, shift: r.shift || 'none', skip_dates: r.skip_dates || [],
+          ...(r.month_week ? { month_week: r.month_week } : {}),
+        };
+      })
+    : [];
+  const entries = data.entries.map((e) => {
+    const rid = withRepeats ? repeatMap.get(e.repeat_id) : null;
+    return {
+      space_id: sid(), created_by: me, entry_date: e.entry_date, kind: e.kind, amount: e.amount, category: e.category,
+      memo: e.memo ?? null, is_public: !!e.is_public, shared_with: mapShare(e.shared_with),
+      ...(withRepeats ? { repeat_id: rid || null, repeat_date: rid ? e.repeat_date : null, repeat_locked: rid ? !!e.repeat_locked : false } : {}),
+    };
+  });
+
+  await ledgerDb.deleteMine(sid(), me, { repeats: withRepeats });
+  await ledgerDb.insertMany('ledger_repeats', repeats);
+  await ledgerDb.insertMany('ledger_entries', entries);
+  await reloadLedger();
+  await syncLedgerRepeats().catch(console.error);
+  return { entries: entries.length, repeats: repeats.length, skippedRepeats: withRepeats ? 0 : (data.repeats || []).length };
+}
+
 export async function lockLedger() {
   await ledgerDb.lock(sid());
   await reloadLedger();
@@ -749,6 +810,6 @@ export const testPush = () => pushDb.showLocalTest();
 export const exportBackup = () => backupDb.exportAll(state.space);
 export const downloadBackup = backupDb.downloadJson;
 export async function restoreBackup(data) {
-  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady, includePurchases: state.purchasesReady, includePlans: state.plansReady });
+  await backupDb.importAll(sid(), data, { includeFood: state.foodReady, includeEvents: state.eventsReady, includePurchases: state.purchasesReady, includePlans: state.plansReady, includeSettings: state.settingsReady });
   await loadAll();
 }

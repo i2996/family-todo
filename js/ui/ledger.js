@@ -207,7 +207,11 @@ export function renderLedger() {
   ${view.selected && holidayName(view.selected, extra) ? `<p class="lg-holname">🎌 ${esc(holidayName(view.selected, extra))}</p>` : ''}`
   }
   ${groups || `<p class="empty">${byCat ? '이 달에는 이 분류 내역이 없어요' : searching ? (hasQ ? '이 기간에는 찾는 내역이 없어요. 기간을 넓히거나 다른 낱말로 찾아보세요' : '이 기간에는 내역이 없어요') : !me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
-  <div class="lg-tools"><button class="chip sm" data-act="ledger-holidays">📅 공휴일 보기·추가</button></div>
+  <div class="lg-tools">
+    ${me ? '<button class="chip sm" data-act="ledger-backup">💾 내 가계부 백업</button><button class="chip sm" data-act="ledger-restore">♻️ 내 가계부 복원</button>' : ''}
+    <button class="chip sm" data-act="ledger-holidays">📅 공휴일 보기·추가</button>
+    <input type="file" id="ledger-restore-input" accept=".json,application/json" hidden data-change="ledger-restore-file">
+  </div>
   <p class="note lg-note">내 내역만 고칠 수 있어요. 보는 사람을 '나만'으로 한 내역은 다른 가족 휴대폰에는 보이지 않아요.</p>
   <button class="fab" data-act="ledger-add" aria-label="내역 추가">+</button>`;
 }
@@ -359,6 +363,13 @@ function openHolidays() {
   });
 }
 
+/** 내 가계부를 파일로 내려받기 (파일 이름은 영문으로: 한글 이름은 일부 기기에서 'download' 로 바뀜. 누구 것인지는 파일 안에 들어 있음) */
+function backupMine(prefix) {
+  const data = A.exportMyLedger();
+  A.downloadBackup(data, `${prefix}-${todayISO()}.json`);
+  return data;
+}
+
 /** 쓰기가 거절되면(다른 기기에서 PIN 을 바꿔 잠긴 경우 등) 다시 열도록 안내 */
 async function writeError(err) {
   if (err && (err.code === '42501' || String(err.message).includes('row-level security'))) {
@@ -441,6 +452,15 @@ export const actions = {
     }
   },
   'ledger-holidays': () => openHolidays(),
+  'ledger-backup': () => {
+    try {
+      backupMine('family-todo-ledger');
+      toast('내 가계부 백업 파일을 내려받았어요');
+    } catch (err) {
+      toast(errMsg(err));
+    }
+  },
+  'ledger-restore': () => document.getElementById('ledger-restore-input')?.click(),
   'ledger-hol-del': async (el) => {
     try {
       await A.saveLedgerHolidays(A.ledgerHolidays().filter((h) => h.date !== el.dataset.date));
@@ -484,6 +504,40 @@ export const actions = {
 
 export const changes = {
   'ledger-who': (el) => syncWho(el.closest('form')),
+  'ledger-restore-file': async (el) => {
+    const file = el.files[0];
+    el.value = '';
+    if (!file) return;
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+      if (data.app !== 'family-todo-ledger') throw new Error();
+    } catch {
+      return toast('가계부 백업 파일이 아니에요. (💾 내 가계부 백업으로 만든 파일이어야 해요)');
+    }
+    const me = A.ledgerMe();
+    if (!me) return toast('먼저 가계부를 열어주세요');
+    const meName = memberById(me)?.name || '';
+    const from = data.owner?.name || '';
+    const missing = [...new Set((data.entries || []).concat(data.repeats || []).flatMap((e) => e.shared_with || []))]
+      .map((id) => (data.members || []).find((m) => m.id === id)?.name)
+      .filter((n) => n && n !== from && !state.members.some((m) => m.name === n));
+    const ok = await confirmDialog({
+      title: `${from && from !== meName ? `${from}의 가계부를 ${meName} 가계부로` : '이 백업으로 내 가계부를'} 복원할까요?`,
+      message: `지금 ${meName}의 가계부 내역과 반복은 모두 지워지고 백업 내용(내역 ${data.entries.length}개, 반복 ${(data.repeats || []).length}개)으로 바뀌어요. 다른 가족 내역은 그대로예요. 복원 전에 지금 가계부를 자동으로 백업 파일로 내려받아요.${
+        missing.length ? `\n\n이 가족 공간에 없는 사람(${missing.join(', ')})은 보는 사람에서 빠져요.` : ''
+      }`,
+      choices: [{ label: '취소', value: false }, { label: '복원하기', value: true, kind: 'danger' }],
+    });
+    if (!ok) return;
+    try {
+      backupMine('family-todo-ledger-before-restore');
+      const r = await A.restoreMyLedger(data);
+      toast(`복원했어요 (내역 ${r.entries}개, 반복 ${r.repeats}개)${r.skippedRepeats ? ` · 반복 ${r.skippedRepeats}개는 ledger-repeat.sql 을 실행해야 옮겨져요` : ''}`);
+    } catch (err) {
+      writeError(err);
+    }
+  },
   // 검색 기간 바꾸기: 입력 중인 검색어도 함께 적용
   'ledger-sp': (el) => {
     view.cat = null;
