@@ -1,13 +1,18 @@
-// 가계부 탭: 월별 수입·지출 + 분류별 지출 + 날짜별 내역.
+// 가계부 탭: 월별 수입·지출 + 달력(전체/수입/지출) + 분류별 합계 + 날짜별 내역.
 // 구성원마다 PIN 을 만들고, 기기에서 한 번 열면 그 사람에게 보이는 내역이 계속 보인다 (서버가 걸러줌).
 import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
-import { EXPENSE_CATS, INCOME_CATS, catIcon, won, parseAmount, inMonth, summarize, expenseByCategory, byDate, visibilityOf } from '../logic/ledger.js';
-import { todayISO, parts, pad, labelDate } from '../logic/dates.js';
+import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, byCategory, byMode, dailyTotals, byDate, visibilityOf } from '../logic/ledger.js';
+import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW } from '../logic/dates.js';
 
-const view = { y: null, m: null };
+const view = { y: null, m: null, mode: 'all', selected: null }; // mode: 'all' | 'income' | 'expense', selected: 고른 날짜(없으면 달 전체)
+const MODES = [
+  { id: 'all', label: '전체' },
+  { id: 'income', label: '수입' },
+  { id: 'expense', label: '지출' },
+];
 
 const PIN_MSG = {
   wrong: 'PIN 이 틀렸어요',
@@ -66,21 +71,41 @@ export function renderLedger() {
   const ym = `${view.y}-${pad(view.m)}`;
   const month = inMonth(state.ledger, ym);
   const sum = summarize(month);
-  const cats = expenseByCategory(month);
+  const catKind = view.mode === 'income' ? 'income' : 'expense';
+  const cats = byCategory(month, catKind);
   const max = cats[0]?.amount || 1;
   const today = todayISO();
 
   const catHtml = cats.length
     ? `<ul class="lg-cats">${cats
         .map(
-          (c) => `<li><span class="lg-cat-name">${catIcon('expense', c.category)} ${esc(c.category)}</span>
+          (c) => `<li><span class="lg-cat-name">${catIcon(catKind, c.category)} ${esc(c.category)}</span>
           <span class="lg-bar"><i style="width:${Math.max(4, Math.round((c.amount / max) * 100))}%"></i></span>
           <span class="lg-cat-amt">${won(c.amount)}</span></li>`
         )
         .join('')}</ul>`
     : '';
 
-  const groups = byDate(month)
+  // 달력: 칸마다 그날 수입(+)/지출(-) 합계
+  const gridStart = startOfWeekSun(`${ym}-01`);
+  const totals = dailyTotals(inMonth(state.ledger, ym));
+  const cells = eachDay(gridStart, addDays(gridStart, 41))
+    .map((d) => {
+      const other = d.slice(0, 7) !== ym;
+      const t = !other && totals.get(d);
+      const inc = t && view.mode !== 'expense' && t.income ? `<span class="lg-c income">+${compactWon(t.income)}</span>` : '';
+      const exp = t && view.mode !== 'income' && t.expense ? `<span class="lg-c expense">-${compactWon(t.expense)}</span>` : '';
+      return `<button class="day${other ? ' other' : ''}${d === today ? ' today' : ''}${d === view.selected ? ' sel' : ''}"
+        data-act="ledger-pick" data-date="${d}" aria-label="${longDate(d)}${t ? ` 수입 ${won(t.income)} 지출 ${won(t.expense)}` : ''}">
+        <span class="n">${Number(d.slice(8))}</span>${inc}${exp}
+      </button>`;
+    })
+    .join('');
+
+  // 목록: 날짜를 골랐으면 그날만, 아니면 달 전체 (보기 방식으로 거름)
+  const shown = byMode(view.selected ? month.filter((e) => e.entry_date === view.selected) : month, view.mode);
+  const modeName = view.mode === 'all' ? '' : ` ${MODES.find((x) => x.id === view.mode).label}`;
+  const groups = byDate(shown)
     .map(
       (g) => `<div class="lg-day"><h3 class="lg-day-head"><span>${labelDate(g.date, today)}${labelDate(g.date, today).includes('월') ? '' : ` · ${Number(g.date.slice(8))}일`}</span></h3>
       <ul class="lg-list">${g.items.map((e) => entryRow(e, me)).join('')}</ul></div>`
@@ -101,9 +126,16 @@ export function renderLedger() {
     <div><small>지출</small><b class="expense">${won(sum.expense)}</b></div>
     <div><small>남은 돈</small><b>${sum.balance < 0 ? '-' : ''}${won(Math.abs(sum.balance))}</b></div>
   </div>
+  <div class="seg wide lg-mode" role="tablist">${MODES.map(
+    (x) => `<button class="${view.mode === x.id ? 'on' : ''}" data-act="ledger-mode" data-v="${x.id}" role="tab" aria-selected="${view.mode === x.id}">${x.label}</button>`
+  ).join('')}</div>
+  <div class="cal-grid lg-cal">
+    ${KO_DOW.map((d, i) => `<span class="dow${i === 0 ? ' sun' : ''}">${d}</span>`).join('')}${cells}
+  </div>
   ${catHtml}
-  <div class="sec-head" style="margin-top:20px"><h2>내역</h2><span class="muted">${month.length}개</span></div>
-  ${groups || `<p class="empty">${me ? '이 달에는 내역이 없어요' : '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요'}</p>`}
+  <div class="sec-head" style="margin-top:20px"><h2>${view.selected ? `${labelDate(view.selected, today)}${labelDate(view.selected, today).includes('월') ? '' : ` (${Number(view.selected.slice(5, 7))}/${Number(view.selected.slice(8))})`}` : '이 달'}${modeName} 내역</h2>
+    ${view.selected ? '<button class="chip sm" data-act="ledger-pick-clear">달 전체 보기</button>' : `<span class="muted">${shown.length}개</span>`}</div>
+  ${groups || `<p class="empty">${!me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
   <p class="note lg-note">내 내역만 고칠 수 있어요. 보는 사람을 '나만'으로 한 내역은 다른 가족 휴대폰에는 보이지 않아요.</p>
   <button class="fab" data-act="ledger-add" aria-label="내역 추가">+</button>`;
 }
@@ -187,13 +219,13 @@ function openEntryForm(entry = null) {
       <div class="lg-amt-field"><input class="big-input" name="amount" inputmode="numeric" required maxlength="16" placeholder="금액" value="${e ? Number(e.amount).toLocaleString('ko-KR') : ''}" data-change="ledger-amount"><span>원</span></div>
       <div class="field"><span class="label">분류</span>${catChips(EXPENSE_CATS, 'expense')}${catChips(INCOME_CATS, 'income')}</div>
       <div class="grid2">
-        <div class="field"><span class="label">날짜</span><input type="date" name="entry_date" required value="${e?.entry_date || todayISO()}"></div>
+        <div class="field"><span class="label">날짜</span><input type="date" name="entry_date" required value="${e?.entry_date || view.selected || todayISO()}"></div>
         <div class="field"><span class="label">내용 (선택)</span><input name="memo" maxlength="200" placeholder="예: 마트 장보기" value="${esc(e?.memo)}"></div>
       </div>
       <div class="field"><span class="label">보는 사람</span>
         <div class="chips">
           <label class="chip pick"><input type="radio" name="vis" value="private" data-change="ledger-vis" ${vis === 'private' ? 'checked' : ''}><span>🔒 나만</span></label>
-          ${others.length ? `<label class="chip pick"><input type="radio" name="vis" value="some" data-change="ledger-vis" ${vis === 'some' ? 'checked' : ''}><span>👥 골라서</span></label>` : ''}
+          ${others.length ? `<label class="chip pick"><input type="radio" name="vis" value="some" data-change="ledger-vis" ${vis === 'some' ? 'checked' : ''}><span>👥 선택</span></label>` : ''}
           <label class="chip pick"><input type="radio" name="vis" value="public" data-change="ledger-vis" ${vis === 'public' ? 'checked' : ''}><span>🏠 온 가족</span></label>
         </div>
         <div class="chips lg-share" ${vis === 'some' ? '' : 'hidden'} style="margin-top:8px">${others
@@ -221,6 +253,7 @@ const shiftMonth = (n) => {
   const d = new Date(view.y, view.m - 1 + n, 1);
   view.y = d.getFullYear();
   view.m = d.getMonth() + 1;
+  view.selected = null;
   set();
 };
 
@@ -229,6 +262,26 @@ export const actions = {
   'ledger-next': () => shiftMonth(1),
   'ledger-this': () => {
     [view.y, view.m] = parts(todayISO());
+    view.selected = null;
+    set();
+  },
+  'ledger-mode': (el) => {
+    view.mode = el.dataset.v;
+    set();
+  },
+  'ledger-pick': (el) => {
+    const d = el.dataset.date;
+    if (view.selected === d) view.selected = null; // 같은 날을 다시 누르면 달 전체
+    else {
+      view.selected = d;
+      const [y, m] = parts(d);
+      view.y = y;
+      view.m = m;
+    }
+    set();
+  },
+  'ledger-pick-clear': () => {
+    view.selected = null;
     set();
   },
   'ledger-unlock': () => openUnlock(),
@@ -365,6 +418,7 @@ export const forms = {
       if (f.dataset.id) await A.saveLedger(f.dataset.id, p);
       else await A.addLedger(p);
       [view.y, view.m] = parts(p.entry_date); // 방금 적은 달이 보이게
+      if (view.selected && view.selected !== p.entry_date) view.selected = p.entry_date;
       closeSheet();
       set();
       toast(f.dataset.id ? '저장했어요' : '추가했어요');
