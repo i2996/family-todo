@@ -36,3 +36,7 @@ alter table public.ledger_entries add column if not exists repeat_id uuid refere
 alter table public.ledger_entries add column if not exists repeat_date date;             -- 원래 날짜 (옮기기 전)
 alter table public.ledger_entries add column if not exists repeat_locked boolean not null default false;  -- 하나만 따로 고친 내역
 create unique index if not exists ledger_entries_repeat_uq on public.ledger_entries(repeat_id, repeat_date);
+
+-- 매월 n번째 ○요일 (1~5 = 첫째~다섯째, -1 = 마지막. 요일은 start_date 의 요일)
+alter table public.ledger_repeats add column if not exists month_week smallint
+  check (month_week is null or month_week = -1 or month_week between 1 and 5);
