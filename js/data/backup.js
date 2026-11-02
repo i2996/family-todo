@@ -187,6 +187,8 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
       place: ev.place ?? null,
       memo: ev.memo ?? null,
       created_by: memberMap.get(ev.created_by) || null,
+      // 공유 대상 (events-share.sql 적용 후 백업에만 있음)
+      ...(Array.isArray(ev.shared_with) ? { shared_with: ev.shared_with.map((m) => memberMap.get(m)).filter(Boolean) } : {}),
     }));
     unwrap(await supabase.from('events').delete().eq('space_id', sid));
     if (rows.length) unwrap(await supabase.from('events').insert(rows));

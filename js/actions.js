@@ -148,7 +148,11 @@ export async function removeMember(id) {
       done_by: t.done_by === id ? null : t.done_by,
     })),
     completions: state.completions.map((c) => (c.done_by === id ? { ...c, done_by: null } : c)),
-    events: state.events.map((e) => (e.created_by === id ? { ...e, created_by: null } : e)),
+    events: state.events.map((e) => ({
+      ...e,
+      created_by: e.created_by === id ? null : e.created_by,
+      ...(Array.isArray(e.shared_with) ? { shared_with: e.shared_with.filter((x) => x !== id) } : {}),
+    })),
     plans: state.plans.map((p) => (p.created_by === id ? { ...p, created_by: null } : p)),
     purchases: state.purchases.map((p) => ({ ...p, requested_by: p.requested_by === id ? null : p.requested_by, decided_by: p.decided_by === id ? null : p.decided_by })),
   });
