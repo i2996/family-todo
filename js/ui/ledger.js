@@ -4,11 +4,17 @@ import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
-import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, summarizeAsOf, byCategory, byMode, dailyTotals, byDate, visibilityOf, repeatLabel, repeatOccurrences, horizonOf, SHIFT_LABEL, weekName, weekOfMonth, searchEntries } from '../logic/ledger.js';
+import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, summarizeAsOf, byCategory, byMode, dailyTotals, byDate, visibilityOf, repeatLabel, repeatOccurrences, horizonOf, SHIFT_LABEL, weekName, weekOfMonth, searchEntries, periodRange, inRange } from '../logic/ledger.js';
 import { holidayName, holidaysOf, LUNAR_UNTIL } from '../logic/holidays.js';
 import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW, dow, shortDate } from '../logic/dates.js';
 
-const view = { y: null, m: null, mode: 'all', selected: null, q: '' }; // q: 검색어 // mode: 'all' | 'income' | 'expense', selected: 고른 날짜(없으면 달 전체)
+const view = { y: null, m: null, mode: 'all', selected: null, q: '', sp: 'month', from: '', to: '' }; // q: 검색어, sp: 검색 기간(기본 보고 있는 달)
+const PERIODS = [
+  { id: 'month', label: '이 달' },
+  { id: 'year', label: '올해' },
+  { id: 'all', label: '전체' },
+  { id: 'custom', label: '기간 지정' },
+]; // mode: 'all' | 'income' | 'expense', selected: 고른 날짜(없으면 달 전체)
 const MODES = [
   { id: 'all', label: '전체' },
   { id: 'income', label: '수입' },
@@ -122,9 +128,13 @@ export function renderLedger() {
 
   // 목록: 검색 중이면 모든 달에서 찾은 것, 날짜를 골랐으면 그날만, 아니면 달 전체 (보기 방식으로 거름)
   const nameOf = (id) => memberById(id)?.name || '';
-  const searching = !!view.q.trim();
+  // 검색: 검색어가 있거나 기간을 '이 달' 말고 다른 것으로 고르면 검색 결과를 보여줌
+  const hasQ = !!view.q.trim();
+  const searching = hasQ || view.sp !== 'month';
+  const range = periodRange(view.sp, ym, view.from, view.to);
+  const inPeriod = inRange(state.ledger, range.from, range.to);
   const shown = byMode(
-    searching ? searchEntries(state.ledger, view.q, nameOf) : view.selected ? month.filter((e) => e.entry_date === view.selected) : month,
+    searching ? (hasQ ? searchEntries(inPeriod, view.q, nameOf) : inPeriod) : view.selected ? month.filter((e) => e.entry_date === view.selected) : month,
     view.mode
   );
   const found = searching ? summarize(shown) : null;
@@ -167,16 +177,24 @@ export function renderLedger() {
     <input type="search" name="q" enterkeyhint="search" maxlength="40" placeholder="🔍 내역 검색 (내용·분류·금액·이름)" value="${esc(view.q)}" aria-label="가계부 내역 검색">
     <button type="submit" class="chip sm">검색</button>
     ${searching ? '<button type="button" class="chip sm" data-act="ledger-search-clear">지우기</button>' : ''}
+    <div class="chips lg-period" role="radiogroup" aria-label="검색 기간">${PERIODS.map(
+      (p) => `<label class="chip pick sm"><input type="radio" name="sp" value="${p.id}" data-change="ledger-sp" ${view.sp === p.id ? 'checked' : ''}><span>${p.label}</span></label>`
+    ).join('')}</div>
+    ${
+      view.sp === 'custom'
+        ? `<div class="lg-range"><input type="date" name="from" value="${esc(view.from)}" data-change="ledger-sp" aria-label="시작 날짜"><span>~</span><input type="date" name="to" value="${esc(view.to)}" data-change="ledger-sp" aria-label="끝 날짜"></div>`
+        : ''
+    }
   </form>
   ${
     searching
-      ? `<div class="sec-head" style="margin-top:14px"><h2>‘${esc(view.q.trim())}’${modeName} 검색 결과</h2><span class="muted">${shown.length}개</span></div>
-        ${shown.length ? `<p class="lg-found">${found.income ? `<span class="income">수입 +${won(found.income)}</span>` : ''}${found.expense ? `<span class="expense">지출 -${won(found.expense)}</span>` : ''}</p>` : ''}`
+      ? `<div class="sec-head" style="margin-top:14px"><h2>${hasQ ? `‘${esc(view.q.trim())}’${modeName} 검색 결과` : `기간${modeName} 내역`}</h2><span class="muted">${shown.length}개</span></div>
+        <p class="lg-found"><span class="muted">📅 ${esc(range.label)}</span>${found.income ? `<span class="income">수입 +${won(found.income)}</span>` : ''}${found.expense ? `<span class="expense">지출 -${won(found.expense)}</span>` : ''}</p>`
       : `<div class="sec-head" style="margin-top:20px"><h2>${view.selected ? `${labelDate(view.selected, today)}${labelDate(view.selected, today).includes('월') ? '' : ` (${Number(view.selected.slice(5, 7))}/${Number(view.selected.slice(8))})`}` : '이 달'}${modeName} 내역</h2>
     ${view.selected ? '<button class="chip sm" data-act="ledger-pick-clear">달 전체 보기</button>' : `<span class="muted">${shown.length}개</span>`}</div>
   ${view.selected && holidayName(view.selected, extra) ? `<p class="lg-holname">🎌 ${esc(holidayName(view.selected, extra))}</p>` : ''}`
   }
-  ${groups || `<p class="empty">${searching ? '찾는 내역이 없어요. 다른 낱말로 찾아보세요' : !me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
+  ${groups || `<p class="empty">${searching ? (hasQ ? '이 기간에는 찾는 내역이 없어요. 기간을 넓히거나 다른 낱말로 찾아보세요' : '이 기간에는 내역이 없어요') : !me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
   <div class="lg-tools"><button class="chip sm" data-act="ledger-holidays">📅 공휴일 보기·추가</button></div>
   <p class="note lg-note">내 내역만 고칠 수 있어요. 보는 사람을 '나만'으로 한 내역은 다른 가족 휴대폰에는 보이지 않아요.</p>
   <button class="fab" data-act="ledger-add" aria-label="내역 추가">+</button>`;
@@ -450,6 +468,7 @@ export const actions = {
   },
   'ledger-search-clear': () => {
     view.q = '';
+    view.sp = 'month';
     set();
   },
   'ledger-pick-clear': () => {
@@ -518,6 +537,18 @@ export const actions = {
 
 export const changes = {
   'ledger-who': (el) => syncWho(el.closest('form')),
+  // 검색 기간 바꾸기: 입력 중인 검색어도 함께 적용
+  'ledger-sp': (el) => {
+    const f = el.closest('form');
+    view.q = String(f.elements.q.value || '').trim();
+    view.sp = f.elements.sp.value || 'month';
+    if (view.sp === 'custom') {
+      const r = periodRange('month', `${view.y}-${pad(view.m)}`);
+      view.from = f.elements.from?.value || view.from || r.from; // 처음엔 보고 있는 달로 채워둠
+      view.to = f.elements.to?.value || view.to || r.to;
+    }
+    set();
+  },
   'ledger-rep': (el) => syncRep(el.closest('form')),
   'ledger-kind': (el) => {
     const f = el.closest('form');
@@ -539,7 +570,13 @@ const pinOk = (s) => /^\d{4}$/.test(s || '');
 
 export const forms = {
   'ledger-search': (f) => {
-    view.q = String(new FormData(f).get('q') || '').trim();
+    const fd = new FormData(f);
+    view.q = String(fd.get('q') || '').trim();
+    view.sp = fd.get('sp') || view.sp;
+    if (view.sp === 'custom') {
+      view.from = fd.get('from') || view.from;
+      view.to = fd.get('to') || view.to;
+    }
     set();
     if (view.q) document.querySelector('.lg-search')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   },
