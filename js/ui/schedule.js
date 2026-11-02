@@ -3,7 +3,7 @@ import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId, NEUTRAL } from './components.js';
-import { toItems, onDate, byDateMap } from '../logic/schedule.js';
+import { toItems, onDate, byDateMap, visibleEvents, sharedOf } from '../logic/schedule.js';
 import { renderPlanBox } from './plans.js';
 import { todayISO, addDays, parts, pad, startOfWeekSun, eachDay, KO_DOW, longDate, labelDate, shortRange } from '../logic/dates.js';
 
@@ -14,6 +14,12 @@ const itemColor = (i) => {
   const m = i.by ? memberById(i.by) : null;
   return m ? m.color : i.kind === 'trip' ? TRIP_COLOR : NEUTRAL;
 };
+
+/** 공유 대상이 지정된 일정이면 '🔒 공유: 엄마, 아빠' 표시 */
+function shareLabel(i) {
+  const names = (i.shared || []).map(memberById).filter(Boolean).map((m) => m.name);
+  return names.length ? `<small class="sch-share">🔒 공유: ${esc(names.join(', '))}</small>` : '';
+}
 
 /** 일정 한 줄 (일정 탭, 홈 공용). when: 홈에서 앞에 붙이는 날짜 문구 */
 export function scheduleRow(i, { when = '' } = {}) {
@@ -28,6 +34,7 @@ export function scheduleRow(i, { when = '' } = {}) {
         ${sub ? `<small>${sub}</small>` : ''}
         ${i.memo ? `<small class="sch-memo">${esc(i.memo)}</small>` : ''}
         ${by ? `<small class="sch-by" style="--mc:${esc(by.color)}"><i class="dot"></i>작성 ${esc(by.name)}</small>` : ''}
+        ${shareLabel(i)}
       </span>
       <span class="go">›</span>
     </button>
@@ -44,7 +51,9 @@ export function renderSchedule() {
     [view.y, view.m] = parts(today);
     view.selected = today; // 처음엔 오늘 일정이 보이게
   }
-  const items = toItems(state.events, state.trips);
+  const me = deviceMemberId();
+  const events = visibleEvents(state.events, me, state.members.map((m) => m.id)); // 나에게 공유되지 않은 일정은 숨김
+  const items = toItems(events, state.trips);
   const gridStart = startOfWeekSun(`${view.y}-${pad(view.m)}-01`);
   const gridEnd = addDays(gridStart, 41);
   const map = byDateMap(items, gridStart, gridEnd);
@@ -71,7 +80,8 @@ export function renderSchedule() {
 
   const list = onDate(items, view.selected);
   return `
-  <section class="page-head"><h1>일정</h1><span class="muted">${state.events.length + state.trips.length}개</span></section>
+  <section class="page-head"><h1>일정</h1><span class="muted">${events.length + state.trips.length}개</span></section>
+  ${!me && events.length < state.events.length ? '<p class="note">일부 일정은 공유된 사람에게만 보여요. 설정에서 <b>이 기기 주인</b>을 정하면 나에게 공유된 일정도 보여요.</p>' : ''}
   <div class="cal-head">
     <button class="icon-btn" data-act="cal-prev" aria-label="이전 달">‹</button>
     <strong>${view.y}년 ${view.m}월</strong>
@@ -92,6 +102,7 @@ export function renderSchedule() {
 export function openEventForm({ event = null, date = null } = {}) {
   const e = event;
   const by = e ? e.created_by || '' : deviceMemberId() || '';
+  const shared = sharedOf(e);
   const body = `<form data-form="event" data-id="${e ? e.id : ''}" autocomplete="off">
     ${
       e
@@ -117,6 +128,11 @@ export function openEventForm({ event = null, date = null } = {}) {
       <div class="chips">${state.members
         .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" ${by === m.id ? 'checked' : ''} ${e ? '' : 'required'}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
         .join('')}</div></div>
+    <div class="field share-field"><span class="label">공유할 사람</span>
+      <div class="chips">${state.members
+        .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="checkbox" name="share" value="${m.id}" ${shared.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
+        .join('')}</div>
+      <small class="note share-hint">아무도 고르지 않으면 온 가족에게 보여요. 고르면 작성자와 고른 사람에게만 보여요.</small></div>
     <div class="form-actions">
       ${e ? `<button type="button" class="btn danger" data-act="event-delete" data-id="${e.id}">삭제</button>` : ''}
       <button type="submit" class="btn primary">${e ? '저장' : '추가'}</button>
@@ -186,6 +202,7 @@ export const changes = {
     const f = el.closest('form');
     const trip = f.elements.kind.value === 'trip';
     f.querySelector('.time-field').hidden = trip; // 외출/여행에는 시간 입력 없음
+    f.querySelector('.share-field').hidden = trip; // 외출/여행은 온 가족 공개
     f.querySelector('.kind-hint').classList.toggle('on', trip); // 안내 글자는 자리를 항상 차지해서 간격이 일정함
   },
 };
@@ -202,12 +219,20 @@ export const forms = {
       memo: (fd.get('memo') || '').trim() || null,
       created_by: fd.get('by') || null,
     };
+    const share = fd.getAll('share').filter(Boolean);
+    // 공유 대상: 비어 있으면 온 가족. events-share.sql 을 아직 안 돌린 곳에서도 '온 가족' 일정은 저장되게
+    // 컬럼이 있을 때(기존 일정에 키가 있음)나 사람을 골랐을 때만 보낸다
+    if (share.length || state.events.some((x) => 'shared_with' in x)) p.shared_with = share.length ? share : null;
     if (!p.title) return toast('제목을 입력해주세요');
     if (p.end_date && p.end_date < p.start_date) return toast('끝나는 날이 시작일보다 빠를 수 없어요');
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
     try {
       if (!f.dataset.id && fd.get('kind') === 'trip') {
+        if (share.length) {
+          btn.disabled = false;
+          return toast('공유할 사람 지정은 📌 일정에서만 할 수 있어요');
+        }
         // 외출/여행: 같은 달력에 표시되고, 준비할 일을 연결하는 상세 화면이 열림
         const row = await A.addTrip({ title: p.title, icon: '🏕️', start_date: p.start_date, end_date: p.end_date, place: p.place, memo: p.memo, created_by: p.created_by });
         view.selected = p.start_date;
@@ -223,7 +248,7 @@ export const forms = {
       toast(f.dataset.id ? '저장했어요' : '추가했어요');
     } catch (err) {
       btn.disabled = false;
-      toast(errMsg(err));
+      toast(String(err && err.message).includes('shared_with') ? '공유할 사람을 지정하려면 먼저 supabase/events-share.sql 을 실행해주세요' : errMsg(err));
     }
   },
 };

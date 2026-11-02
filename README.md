@@ -36,6 +36,7 @@ supabase/schema.sql                           테이블 + 보안(RLS) + 실시�
 supabase/food.sql                             먹거리(반찬·간식) 테이블 추가분
 supabase/multi-assign.sql                     담당자 여러 명 + 완료한 사람 기록
 supabase/push.sql, functions/notify-task/     새 할 일 알림(웹 푸시) — 설정은 supabase/PUSH-SETUP.md
+supabase/events-share.sql                     일정 공유 대상 지정 (비우면 온 가족, 고르면 작성자+고른 사람만)
 ```
 
 ## DB 구조

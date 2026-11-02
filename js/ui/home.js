@@ -3,7 +3,7 @@ import { state, set } from '../state.js';
 import { prefs } from '../prefs.js';
 import { buildTaskList, filterByMember, sortOccurrences } from '../logic/filters.js';
 import { occurrencesInRange } from '../logic/recurrence.js';
-import { toItems, upcoming } from '../logic/schedule.js';
+import { toItems, upcoming, visibleEvents } from '../logic/schedule.js';
 import { todayISO, addDays, longDate, labelDate, shortDate, dow, KO_DOW } from '../logic/dates.js';
 import { esc, deviceMemberId, memberById, taskList, taskRow } from './components.js';
 import { isAssignedTo } from '../logic/assign.js';
@@ -38,7 +38,7 @@ export function renderHome() {
     state.members
   );
   // 가까운 시일(오늘부터 7일 이내)의 일정 = 일정 + 외출/여행
-  const soonSchedule = upcoming(toItems(state.events, state.trips), today, 7);
+  const soonSchedule = upcoming(toItems(visibleEvents(state.events, deviceMemberId(), state.members.map((m) => m.id)), state.trips), today, 7);
   const family = buildTaskList(ctx, { member: 'all', period: 'today', status: 'all' }, today);
   const famPending = family.filter((o) => !o.done);
   const myPending = todayList.filter((o) => !o.done).length;
