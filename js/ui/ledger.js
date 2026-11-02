@@ -276,7 +276,8 @@ function openEntryForm(entry = null, { rule = null } = {}) {
   const myRule = entry?.repeat_id ? state.ledgerRepeats.find((r) => r.id === entry.repeat_id) : null;
   const dateVal = isRule ? rule.start_date : entry?.entry_date || view.selected || todayISO();
   const kind = e?.kind || 'expense';
-  const vis = e ? visibilityOf(e) : 'private';
+  const others = state.members.filter((m) => m.id !== me);
+  const vis = e ? visibilityOf(e) : others.length ? 'some' : 'private'; // 새 내역은 '선택'이 기본 (나 말고 가족이 없으면 '나만')
   const shared = e?.shared_with || [];
   const catChips = (list, k) =>
     `<div class="chips cat-${k}" ${kind === k ? '' : 'hidden'}>${list
@@ -284,7 +285,6 @@ function openEntryForm(entry = null, { rule = null } = {}) {
         (c, i) => `<label class="chip pick"><input type="radio" name="cat_${k}" value="${c.id}" ${(e && e.kind === k ? e.category === c.id : i === 0) ? 'checked' : ''}><span>${c.icon} ${esc(c.id)}</span></label>`
       )
       .join('')}</div>`;
-  const others = state.members.filter((m) => m.id !== me);
   openSheet({
     title: isRule ? '반복 설정 바꾸기' : e ? '내역 수정' : '내역 추가',
     body: `<form data-form="ledger" data-id="${entry ? entry.id : ''}" data-rule="${isRule ? rule.id : ''}" autocomplete="off">
@@ -308,9 +308,9 @@ function openEntryForm(entry = null, { rule = null } = {}) {
       </div>
       <div class="field"><span class="label">보는 사람</span>
         <div class="chips">
-          <label class="chip pick"><input type="radio" name="vis" value="private" data-change="ledger-vis" ${vis === 'private' ? 'checked' : ''}><span>🔒 나만</span></label>
           ${others.length ? `<label class="chip pick"><input type="radio" name="vis" value="some" data-change="ledger-vis" ${vis === 'some' ? 'checked' : ''}><span>👥 선택</span></label>` : ''}
           <label class="chip pick"><input type="radio" name="vis" value="public" data-change="ledger-vis" ${vis === 'public' ? 'checked' : ''}><span>🏠 온 가족</span></label>
+          <label class="chip pick"><input type="radio" name="vis" value="private" data-change="ledger-vis" ${vis === 'private' ? 'checked' : ''}><span>🔒 나만</span></label>
         </div>
         <div class="chips lg-share" ${vis === 'some' ? '' : 'hidden'} style="margin-top:8px">${others
           .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="checkbox" name="share" value="${m.id}" ${shared.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
