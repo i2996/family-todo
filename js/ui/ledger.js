@@ -8,7 +8,7 @@ import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMon
 import { holidayName, holidaysOf, LUNAR_UNTIL } from '../logic/holidays.js';
 import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW, dow, shortDate } from '../logic/dates.js';
 
-const view = { y: null, m: null, mode: 'all', selected: null, q: '', sp: 'month', from: '', to: '' }; // q: 검색어, sp: 검색 기간(기본 보고 있는 달)
+const view = { y: null, m: null, mode: 'all', selected: null, q: '', sp: 'month', from: '', to: '', cat: null }; // cat: 통계에서 누른 분류 { kind, category } // q: 검색어, sp: 검색 기간(기본 보고 있는 달)
 const PERIODS = [
   { id: 'month', label: '이 달' },
   { id: 'year', label: '올해' },
@@ -98,14 +98,18 @@ export function renderLedger() {
   const max = cats[0]?.amount || 1;
   const today = todayISO();
 
+  // 통계에서 누른 분류 (지금 보기 방식과 수입/지출이 맞을 때만)
+  const activeCat = view.cat && view.cat.kind === catKind ? view.cat.category : null;
   const catHtml = cats.length
     ? `<ul class="lg-cats">${cats
         .map(
-          (c) => `<li><span class="lg-cat-name">${catIcon(catKind, c.category)} ${esc(c.category)}</span>
+          (c) => `<li><button class="lg-cat-btn${c.category === activeCat ? ' on' : ''}" data-act="ledger-cat" data-kind="${catKind}" data-cat="${esc(c.category)}" aria-pressed="${c.category === activeCat}">
+          <span class="lg-cat-name">${catIcon(catKind, c.category)} ${esc(c.category)}</span>
           <span class="lg-bar"><i style="width:${Math.max(4, Math.round((c.amount / max) * 100))}%"></i></span>
-          <span class="lg-cat-amt">${won(c.amount)}</span></li>`
+          <span class="lg-cat-amt">${won(c.amount)}</span></button></li>`
         )
-        .join('')}</ul>`
+        .join('')}</ul>
+      <p class="lg-cat-tip">분류를 누르면 아래에 그 분류 내역이 나와요</p>`
     : '';
 
   // 달력: 칸마다 그날 수입(+)/지출(-) 합계
@@ -133,10 +137,13 @@ export function renderLedger() {
   const searching = hasQ || view.sp !== 'month';
   const range = periodRange(view.sp, ym, view.from, view.to);
   const inPeriod = inRange(state.ledger, range.from, range.to);
-  const shown = byMode(
-    searching ? (hasQ ? searchEntries(inPeriod, view.q, nameOf) : inPeriod) : view.selected ? month.filter((e) => e.entry_date === view.selected) : month,
-    view.mode
-  );
+  const byCat = !searching && activeCat; // 통계에서 분류를 눌렀으면 이 달의 그 분류 내역
+  const shown = byCat
+    ? month.filter((e) => (e.kind === 'income') === (catKind === 'income') && e.category === activeCat)
+    : byMode(
+        searching ? (hasQ ? searchEntries(inPeriod, view.q, nameOf) : inPeriod) : view.selected ? month.filter((e) => e.entry_date === view.selected) : month,
+        view.mode
+      );
   const found = searching ? summarize(shown) : null;
   const thisYear = today.slice(0, 4);
   const dayLabel = (d) => {
@@ -187,14 +194,18 @@ export function renderLedger() {
     }
   </form>
   ${
-    searching
-      ? `<div class="sec-head" style="margin-top:14px"><h2>${hasQ ? `‘${esc(view.q.trim())}’${modeName} 검색 결과` : `기간${modeName} 내역`}</h2><span class="muted">${shown.length}개</span></div>
+    byCat
+      ? `<div class="sec-head lg-list-head" style="margin-top:20px"><h2>${catIcon(catKind, activeCat)} ${esc(activeCat)} 내역</h2>
+          <button class="chip sm" data-act="ledger-cat-clear">달 전체 보기</button></div>
+        <p class="lg-found"><span class="muted">📅 ${view.y}년 ${view.m}월 · ${shown.length}개</span><span class="${catKind}">${catKind === 'income' ? '+' : '-'}${won(summarize(shown)[catKind])}</span></p>`
+      : searching
+      ? `<div class="sec-head lg-list-head" style="margin-top:14px"><h2>${hasQ ? `‘${esc(view.q.trim())}’${modeName} 검색 결과` : `기간${modeName} 내역`}</h2><span class="muted">${shown.length}개</span></div>
         <p class="lg-found"><span class="muted">📅 ${esc(range.label)}</span>${found.income ? `<span class="income">수입 +${won(found.income)}</span>` : ''}${found.expense ? `<span class="expense">지출 -${won(found.expense)}</span>` : ''}</p>`
-      : `<div class="sec-head" style="margin-top:20px"><h2>${view.selected ? `${labelDate(view.selected, today)}${labelDate(view.selected, today).includes('월') ? '' : ` (${Number(view.selected.slice(5, 7))}/${Number(view.selected.slice(8))})`}` : '이 달'}${modeName} 내역</h2>
+      : `<div class="sec-head lg-list-head" style="margin-top:20px"><h2>${view.selected ? `${labelDate(view.selected, today)}${labelDate(view.selected, today).includes('월') ? '' : ` (${Number(view.selected.slice(5, 7))}/${Number(view.selected.slice(8))})`}` : '이 달'}${modeName} 내역</h2>
     ${view.selected ? '<button class="chip sm" data-act="ledger-pick-clear">달 전체 보기</button>' : `<span class="muted">${shown.length}개</span>`}</div>
   ${view.selected && holidayName(view.selected, extra) ? `<p class="lg-holname">🎌 ${esc(holidayName(view.selected, extra))}</p>` : ''}`
   }
-  ${groups || `<p class="empty">${searching ? (hasQ ? '이 기간에는 찾는 내역이 없어요. 기간을 넓히거나 다른 낱말로 찾아보세요' : '이 기간에는 내역이 없어요') : !me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
+  ${groups || `<p class="empty">${byCat ? '이 달에는 이 분류 내역이 없어요' : searching ? (hasQ ? '이 기간에는 찾는 내역이 없어요. 기간을 넓히거나 다른 낱말로 찾아보세요' : '이 기간에는 내역이 없어요') : !me && !state.ledger.length ? '보이는 내역이 없어요. PIN 으로 열면 내 가계부가 보여요' : view.selected ? `이 날은${modeName} 내역이 없어요` : `이 달에는${modeName} 내역이 없어요`}</p>`}
   <div class="lg-tools"><button class="chip sm" data-act="ledger-holidays">📅 공휴일 보기·추가</button></div>
   <p class="note lg-note">내 내역만 고칠 수 있어요. 보는 사람을 '나만'으로 한 내역은 다른 가족 휴대폰에는 보이지 않아요.</p>
   <button class="fab" data-act="ledger-add" aria-label="내역 추가">+</button>`;
@@ -455,7 +466,21 @@ export const actions = {
     view.mode = el.dataset.v;
     set();
   },
+  'ledger-cat': (el) => {
+    const same = view.cat && view.cat.kind === el.dataset.kind && view.cat.category === el.dataset.cat;
+    view.cat = same ? null : { kind: el.dataset.kind, category: el.dataset.cat }; // 같은 분류를 다시 누르면 해제
+    view.selected = null;
+    view.q = '';
+    view.sp = 'month';
+    set();
+    if (view.cat) requestAnimationFrame(() => document.querySelector('.lg-list-head')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  },
+  'ledger-cat-clear': () => {
+    view.cat = null;
+    set();
+  },
   'ledger-pick': (el) => {
+    view.cat = null;
     const d = el.dataset.date;
     if (view.selected === d) view.selected = null; // 같은 날을 다시 누르면 달 전체
     else {
@@ -539,6 +564,7 @@ export const changes = {
   'ledger-who': (el) => syncWho(el.closest('form')),
   // 검색 기간 바꾸기: 입력 중인 검색어도 함께 적용
   'ledger-sp': (el) => {
+    view.cat = null;
     const f = el.closest('form');
     view.q = String(f.elements.q.value || '').trim();
     view.sp = f.elements.sp.value || 'month';
@@ -570,6 +596,7 @@ const pinOk = (s) => /^\d{4}$/.test(s || '');
 
 export const forms = {
   'ledger-search': (f) => {
+    view.cat = null;
     const fd = new FormData(f);
     view.q = String(fd.get('q') || '').trim();
     view.sp = fd.get('sp') || view.sp;
