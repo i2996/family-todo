@@ -43,6 +43,16 @@ export function summarize(entries) {
   return { income, expense, balance: income - expense };
 }
 
+/**
+ * 남은 돈을 오늘 기준으로: 오늘까지 들어오고 나간 돈만 계산하고, 오늘 이후 내역은 '예정'으로 따로.
+ * → { now: {income, expense, balance}, planned: {income, expense, balance}, total: {...}, hasPlanned }
+ */
+export function summarizeAsOf(entries, today) {
+  const now = summarize(entries.filter((e) => String(e.entry_date).slice(0, 10) <= today));
+  const planned = summarize(entries.filter((e) => String(e.entry_date).slice(0, 10) > today));
+  return { now, planned, total: summarize(entries), hasPlanned: planned.income > 0 || planned.expense > 0 };
+}
+
 /** 분류별 합계 (큰 순서) [{ category, amount }]. kind: 'expense' | 'income' */
 export function byCategory(entries, kind = 'expense') {
   const map = new Map();

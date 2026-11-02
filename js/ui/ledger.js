@@ -4,7 +4,7 @@ import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
-import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, byCategory, byMode, dailyTotals, byDate, visibilityOf } from '../logic/ledger.js';
+import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, summarizeAsOf, byCategory, byMode, dailyTotals, byDate, visibilityOf } from '../logic/ledger.js';
 import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW } from '../logic/dates.js';
 
 const view = { y: null, m: null, mode: 'all', selected: null }; // mode: 'all' | 'income' | 'expense', selected: 고른 날짜(없으면 달 전체)
@@ -39,7 +39,7 @@ function entryRow(e, me) {
   const sign = e.kind === 'income' ? '+' : '-';
   const inner = `<span class="lg-ico">${catIcon(e.kind, e.category)}</span>
     <span class="lg-body">
-      <b>${esc(e.memo || e.category)}</b>
+      <b>${esc(e.memo || e.category)}${String(e.entry_date) > todayISO() ? '<em class="lg-plan">예정</em>' : ''}</b>
       <small>${esc(e.category)}${e.created_by && !mine ? ` · ${dotName(e.created_by)}` : ''} · ${visLabel(e)}</small>
     </span>
     <span class="lg-amt ${e.kind}">${sign}${won(e.amount)}</span>`;
@@ -71,6 +71,21 @@ export function renderLedger() {
   const ym = `${view.y}-${pad(view.m)}`;
   const month = inMonth(state.ledger, ym);
   const sum = summarize(month);
+  const today0 = todayISO();
+  const asOf = summarizeAsOf(month, today0);
+  const thisYm = today0.slice(0, 7);
+  const signed = (n) => `${n < 0 ? '-' : ''}${won(Math.abs(n))}`;
+  // 남은 돈: 이번 달은 오늘까지, 지난 달은 그 달 전체, 다음 달 이후는 '예정'
+  const bal =
+    ym < thisYm
+      ? { label: '남은 돈', value: signed(asOf.total.balance), subs: [] }
+      : ym > thisYm
+        ? { label: '남은 돈', value: signed(asOf.total.balance), subs: ['예정'] }
+        : {
+            label: '남은 돈',
+            value: signed(asOf.now.balance),
+            subs: ['오늘 기준', ...(asOf.hasPlanned ? [`예정 포함 ${asOf.total.balance < 0 ? '-' : ''}${compactWon(asOf.total.balance)}`] : [])],
+          };
   const catKind = view.mode === 'income' ? 'income' : 'expense';
   const cats = byCategory(month, catKind);
   const max = cats[0]?.amount || 1;
@@ -124,7 +139,7 @@ export function renderLedger() {
   <div class="lg-sum">
     <div><small>수입</small><b class="income">${won(sum.income)}</b></div>
     <div><small>지출</small><b class="expense">${won(sum.expense)}</b></div>
-    <div><small>남은 돈</small><b>${sum.balance < 0 ? '-' : ''}${won(Math.abs(sum.balance))}</b></div>
+    <div class="lg-bal"><small>${bal.label}</small><b class="${asOf.now.balance < 0 && ym === thisYm ? 'expense' : ''}">${bal.value}</b>${bal.subs.map((s) => `<em>${esc(s)}</em>`).join('')}</div>
   </div>
   <div class="seg wide lg-mode" role="tablist">${MODES.map(
     (x) => `<button class="${view.mode === x.id ? 'on' : ''}" data-act="ledger-mode" data-v="${x.id}" role="tab" aria-selected="${view.mode === x.id}">${x.label}</button>`
