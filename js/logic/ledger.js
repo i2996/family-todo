@@ -11,6 +11,10 @@ export const EXPENSE_CATS = [
   { id: '문화·여가', icon: '🎡' },
   { id: '경조사', icon: '🎁' },
   { id: '공과금', icon: '🧾' },
+  { id: '통신', icon: '📱' },
+  { id: '카드값', icon: '💳' },
+  { id: '보험료', icon: '🛡️' },
+  { id: '이자', icon: '🏦' },
   { id: '기타', icon: '💸' },
 ];
 export const INCOME_CATS = [
