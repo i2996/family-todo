@@ -189,6 +189,13 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
       created_by: memberMap.get(ev.created_by) || null,
       // 공유 대상 (events-share.sql 적용 후 백업에만 있음)
       ...(Array.isArray(ev.shared_with) ? { shared_with: ev.shared_with.map((m) => memberMap.get(m)).filter(Boolean) } : {}),
+      // 반복 (events-repeat.sql 적용 후 백업에만 있음)
+      ...(ev.repeat_freq
+        ? {
+            repeat_freq: ev.repeat_freq, repeat_end: ev.repeat_end ?? null, repeat_last_day: !!ev.repeat_last_day,
+            repeat_month_week: ev.repeat_month_week ?? null, repeat_shift: ev.repeat_shift || 'none', repeat_skip: ev.repeat_skip || [],
+          }
+        : {}),
     }));
     unwrap(await supabase.from('events').delete().eq('space_id', sid));
     if (rows.length) unwrap(await supabase.from('events').insert(rows));

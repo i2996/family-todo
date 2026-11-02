@@ -3,7 +3,9 @@ import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId, NEUTRAL } from './components.js';
-import { toItems, onDate, byDateMap, visibleEvents, sharedOf } from '../logic/schedule.js';
+import { toItems, onDate, byDateMap, visibleEvents, sharedOf, eventRule } from '../logic/schedule.js';
+import { repeatLabel } from '../logic/ledger.js';
+import { repeatSection, syncRep, readRepeat } from './repeat.js';
 import { renderPlanBox } from './plans.js';
 import { todayISO, addDays, parts, pad, startOfWeekSun, eachDay, KO_DOW, longDate, labelDate, shortRange } from '../logic/dates.js';
 
@@ -26,11 +28,11 @@ export function scheduleRow(i, { when = '' } = {}) {
   const by = i.by ? memberById(i.by) : null;
   const sub = [i.time, i.start !== i.end ? shortRange(i.start, i.end) : '', i.place].filter(Boolean).map(esc).join(' · ');
   return `<li class="sch-item">
-    <button class="sch-main" data-act="${i.kind === 'trip' ? 'open-trip' : 'edit-event'}" data-id="${i.id}">
+    <button class="sch-main" data-act="${i.kind === 'trip' ? 'open-trip' : 'edit-event'}" data-id="${i.id}"${i.occ ? ` data-occ="${i.occ}" data-day="${i.start}"` : ''}>
       ${when ? `<span class="sch-when">${esc(when)}</span>` : ''}
       <span class="sch-ico">${esc(i.icon)}</span>
       <span class="sch-body">
-        <b>${esc(i.title)}</b>
+        <b>${i.repeat ? '<span class="sch-rep" title="반복 일정">🔁</span> ' : ''}${esc(i.title)}</b>
         ${sub ? `<small>${sub}</small>` : ''}
         ${i.memo ? `<small class="sch-memo">${esc(i.memo)}</small>` : ''}
         ${by ? `<small class="sch-by" style="--mc:${esc(by.color)}"><i class="dot"></i>작성 ${esc(by.name)}</small>` : ''}
@@ -53,9 +55,9 @@ export function renderSchedule() {
   }
   const me = deviceMemberId();
   const events = visibleEvents(state.events, me, state.members.map((m) => m.id)); // 나에게 공유되지 않은 일정은 숨김
-  const items = toItems(events, state.trips);
   const gridStart = startOfWeekSun(`${view.y}-${pad(view.m)}-01`);
   const gridEnd = addDays(gridStart, 41);
+  const items = toItems(events, state.trips, { from: gridStart, to: gridEnd, extra: A.ledgerHolidays() }); // 반복 일정은 달력 기간만큼 펼침
   const map = byDateMap(items, gridStart, gridEnd);
 
   const cells = eachDay(gridStart, gridEnd)
@@ -99,11 +101,31 @@ export function renderSchedule() {
 }
 
 /* ---------- 일정 추가/수정 폼 ---------- */
-export function openEventForm({ event = null, date = null } = {}) {
+/**
+ * event: 고칠 일정, occ/day: 반복 일정에서 누른 날 (원래 날짜 / 실제 날짜)
+ * single: 반복 일정의 '이 날만 수정' (저장하면 그날만 따로 떼어낸 일정이 됨)
+ */
+export function openEventForm({ event = null, date = null, occ = null, day = null, single = false } = {}) {
   const e = event;
   const by = e ? e.created_by || '' : deviceMemberId() || '';
   const shared = sharedOf(e);
-  const body = `<form data-form="event" data-id="${e ? e.id : ''}" autocomplete="off">
+  const rule = eventRule(e);
+  const startVal = single ? day : e?.start_date || date || todayISO();
+  const span = e?.end_date ? Math.round((Date.parse(e.end_date) - Date.parse(e.start_date)) / 864e5) : 0;
+  const endVal = single ? (span ? addDays(day, span) : '') : e?.end_date || '';
+  const repBox =
+    rule && occ && !single
+      ? `<div class="lg-rep-box"><b>🔁 ${esc(repeatLabel(rule))}</b>
+          <small>${esc(labelDate(day || occ))} 일정을 눌렀어요. 아래에서 저장하면 반복 일정 전체가 바뀌어요.</small>
+          <span class="lg-rep-acts">
+            <button type="button" class="chip sm" data-act="event-occ-edit" data-id="${e.id}" data-occ="${occ}" data-day="${day || occ}">이 날만 수정</button>
+            <button type="button" class="chip sm" data-act="event-occ-delete" data-id="${e.id}" data-occ="${occ}">이 날만 삭제</button>
+            <button type="button" class="chip sm" data-act="event-rep-stop" data-id="${e.id}">반복 그만하기</button>
+          </span></div>`
+      : '';
+  const body = `<form data-form="event" data-id="${e && !single ? e.id : ''}" data-split="${single ? e.id : ''}" data-occ="${single ? occ : ''}" autocomplete="off">
+    ${repBox}
+    ${single ? `<p class="note" style="margin-top:0">🔁 반복 일정 중 <b>${esc(labelDate(day))}</b> 하나만 바꿔요. 저장하면 이 날은 따로 떨어진 일정이 돼요.</p>` : ''}
     ${
       e
         ? ''
@@ -116,8 +138,8 @@ export function openEventForm({ event = null, date = null } = {}) {
     }
     <input class="big-input" name="title" required maxlength="80" placeholder="무슨 일정인가요? (예: 학부모 상담)" value="${esc(e?.title)}">
     <div class="grid2">
-      <div class="field"><span class="label">날짜</span><input type="date" name="start_date" required value="${e?.start_date || date || todayISO()}"></div>
-      <div class="field"><span class="label">끝나는 날 (여러 날이면)</span><input type="date" name="end_date" value="${e?.end_date || ''}"></div>
+      <div class="field"><span class="label">${rule && !single ? '시작 날짜' : '날짜'}</span><input type="date" name="start_date" required value="${startVal}" data-change="rep-sync"></div>
+      <div class="field"><span class="label">끝나는 날 (여러 날이면)</span><input type="date" name="end_date" value="${endVal}"></div>
     </div>
     <div class="grid2">
       <div class="field time-field"><span class="label">시간 (선택)</span><input type="time" name="start_time" value="${e?.start_time ? String(e.start_time).slice(0, 5) : ''}"></div>
@@ -133,14 +155,18 @@ export function openEventForm({ event = null, date = null } = {}) {
         .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="checkbox" name="share" value="${m.id}" ${shared.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
         .join('')}</div>
       <small class="note share-hint">아무도 고르지 않으면 온 가족에게 보여요. 고르면 작성자와 고른 사람에게만 보여요.</small></div>
+    ${single ? '' : `<div class="rep-field">${repeatSection(rule, startVal, { dateField: 'start_date', noneOption: true })}</div>`}
     <div class="form-actions">
-      ${e ? `<button type="button" class="btn danger" data-act="event-delete" data-id="${e.id}">삭제</button>` : ''}
+      ${e && !single ? `<button type="button" class="btn danger" data-act="event-delete" data-id="${e.id}">${rule ? '반복 전체 삭제' : '삭제'}</button>` : ''}
       <button type="submit" class="btn primary">${e ? '저장' : '추가'}</button>
     </div></form>`;
   openSheet({
-    title: e ? '일정 수정' : '일정 추가',
+    title: single ? '이 날만 수정' : rule ? '반복 일정 수정' : e ? '일정 수정' : '일정 추가',
     body,
-    onMount: (el) => !e && setTimeout(() => el.querySelector('[name=title]').focus(), 60),
+    onMount: (el) => {
+      syncRep(el.querySelector('form'));
+      if (!e) setTimeout(() => el.querySelector('[name=title]').focus(), 60);
+    },
   });
 }
 
@@ -179,11 +205,54 @@ export const actions = {
   },
   'edit-event': (el) => {
     const ev = state.events.find((x) => x.id === el.dataset.id);
-    if (ev) openEventForm({ event: ev });
+    if (ev) openEventForm({ event: ev, occ: el.dataset.occ || null, day: el.dataset.day || null });
+  },
+  'event-occ-edit': (el) => {
+    const ev = state.events.find((x) => x.id === el.dataset.id);
+    if (ev) openEventForm({ event: ev, occ: el.dataset.occ, day: el.dataset.day, single: true });
+  },
+  'event-occ-delete': async (el) => {
+    const ev = state.events.find((x) => x.id === el.dataset.id);
+    if (!ev) return;
+    const ok = await confirmDialog({
+      title: '이 날 일정만 삭제할까요?',
+      message: '다른 날의 반복 일정은 그대로 있어요.',
+      choices: [{ label: '취소', value: false }, { label: '이 날만 삭제', value: true, kind: 'danger' }],
+    });
+    if (!ok) return;
+    try {
+      await A.saveEvent(ev.id, { repeat_skip: [...new Set([...(ev.repeat_skip || []), el.dataset.occ])] });
+      closeSheet();
+      toast('이 날 일정을 삭제했어요');
+    } catch (err) {
+      toast(errMsg(err));
+    }
+  },
+  'event-rep-stop': async (el) => {
+    const ev = state.events.find((x) => x.id === el.dataset.id);
+    if (!ev) return;
+    const yesterday = addDays(todayISO(), -1);
+    const noPast = yesterday < ev.start_date; // 아직 한 번도 안 지난 반복이면 통째로 지움
+    const ok = await confirmDialog({
+      title: '반복을 그만할까요?',
+      message: noPast ? '아직 지난 일정이 없어서 이 반복 일정이 모두 지워져요.' : '지난 일정은 남고, 오늘부터의 반복 일정은 없어져요.',
+      choices: [{ label: '취소', value: false }, { label: '그만하기', value: true, kind: 'danger' }],
+    });
+    if (!ok) return;
+    try {
+      if (noPast) await A.removeEvent(ev.id);
+      else await A.saveEvent(ev.id, { repeat_end: yesterday });
+      closeSheet();
+      toast('반복을 그만했어요');
+    } catch (err) {
+      toast(errMsg(err));
+    }
   },
   'event-delete': async (el) => {
+    const isRep = !!state.events.find((x) => x.id === el.dataset.id)?.repeat_freq;
     const ok = await confirmDialog({
-      title: '이 일정을 삭제할까요?',
+      title: isRep ? '반복 일정을 모두 삭제할까요?' : '이 일정을 삭제할까요?',
+      message: isRep ? '지난 날짜까지 모든 반복 일정이 지워져요. 오늘부터만 없애려면 "반복 그만하기"를 쓰세요.' : '',
       choices: [{ label: '취소', value: false }, { label: '삭제', value: true, kind: 'danger' }],
     });
     if (!ok) return;
@@ -203,6 +272,8 @@ export const changes = {
     const trip = f.elements.kind.value === 'trip';
     f.querySelector('.time-field').hidden = trip; // 외출/여행에는 시간 입력 없음
     f.querySelector('.share-field').hidden = trip; // 외출/여행은 온 가족 공개
+    const rf = f.querySelector('.rep-field');
+    if (rf) rf.hidden = trip; // 외출/여행은 반복 없음
     f.querySelector('.kind-hint').classList.toggle('on', trip); // 안내 글자는 자리를 항상 차지해서 간격이 일정함
   },
 };
@@ -225,6 +296,22 @@ export const forms = {
     if (share.length || state.events.some((x) => 'shared_with' in x)) p.shared_with = share.length ? share : null;
     if (!p.title) return toast('제목을 입력해주세요');
     if (p.end_date && p.end_date < p.start_date) return toast('끝나는 날이 시작일보다 빠를 수 없어요');
+    // 반복: events-repeat.sql 을 안 돌린 곳에서도 반복 없는 일정은 저장되게, 반복을 쓰거나 칸이 있을 때만 보냄
+    const isTrip = !f.dataset.id && fd.get('kind') === 'trip';
+    const r = isTrip || f.dataset.split ? null : readRepeat(f, p.start_date);
+    if (r && r.end_date && r.end_date < p.start_date) return toast('반복 끝나는 날이 시작 날짜보다 빠를 수 없어요');
+    const old = f.dataset.id ? state.events.find((x) => x.id === f.dataset.id) : null;
+    if (r || (old && 'repeat_freq' in old) || (f.dataset.split && state.events.some((x) => 'repeat_freq' in x))) {
+      Object.assign(p, {
+        repeat_freq: r ? r.freq : null,
+        repeat_end: r ? r.end_date : null,
+        repeat_last_day: !!r?.last_day,
+        repeat_month_week: r ? r.month_week : null,
+        repeat_shift: r ? r.shift : 'none',
+      });
+      // 시작 날짜나 반복 규칙이 바뀌면 예전에 지운 날 목록은 의미가 없어서 비움
+      if (old && (old.start_date !== p.start_date || old.repeat_freq !== p.repeat_freq || !r)) p.repeat_skip = [];
+    }
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
     try {
@@ -241,14 +328,21 @@ export const forms = {
         toast('외출/여행을 만들었어요. 준비할 일을 추가해보세요');
         return;
       }
-      if (f.dataset.id) await A.saveEvent(f.dataset.id, p);
+      if (f.dataset.split) {
+        // 반복 일정의 이 날만 수정: 따로 떼어낸 일정을 만들고, 반복에서는 그 날을 뺌
+        const series = state.events.find((x) => x.id === f.dataset.split);
+        await A.addEvent(p);
+        if (series) await A.saveEvent(series.id, { repeat_skip: [...new Set([...(series.repeat_skip || []), f.dataset.occ])] });
+      } else if (f.dataset.id) await A.saveEvent(f.dataset.id, p);
       else await A.addEvent(p);
-      view.selected = p.start_date; // 방금 만든 일정이 바로 보이게
+      view.selected = f.dataset.id && r ? view.selected : p.start_date; // 방금 만든 일정이 바로 보이게
       closeSheet();
-      toast(f.dataset.id ? '저장했어요' : '추가했어요');
+      toast(f.dataset.split ? '이 날만 바꿨어요' : r && !f.dataset.id ? '반복 일정을 만들었어요' : f.dataset.id ? '저장했어요' : '추가했어요');
     } catch (err) {
       btn.disabled = false;
-      toast(String(err && err.message).includes('shared_with') ? '공유할 사람을 지정하려면 먼저 supabase/events-share.sql 을 실행해주세요' : errMsg(err));
+      const msg = String(err && err.message);
+      if (msg.includes('repeat_')) return toast('반복을 쓰려면 먼저 supabase/events-repeat.sql 을 실행해주세요');
+      toast(msg.includes('shared_with') ? '공유할 사람을 지정하려면 먼저 supabase/events-share.sql 을 실행해주세요' : errMsg(err));
     }
   },
 };

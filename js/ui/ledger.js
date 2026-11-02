@@ -6,6 +6,7 @@ import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
 import { EXPENSE_CATS, INCOME_CATS, catIcon, won, compactWon, parseAmount, inMonth, summarize, summarizeAsOf, byCategory, byMode, dailyTotals, byDate, visibilityOf, repeatLabel, repeatOccurrences, horizonOf, SHIFT_LABEL, weekName, weekOfMonth, searchEntries, periodRange, inRange } from '../logic/ledger.js';
 import { holidayName, holidaysOf, LUNAR_UNTIL } from '../logic/holidays.js';
+import { repeatSection, repeatNotReady, syncRep, monthlyRule } from './repeat.js';
 import { todayISO, parts, pad, labelDate, longDate, addDays, startOfWeekSun, eachDay, KO_DOW, dow, shortDate } from '../logic/dates.js';
 
 const view = { y: null, m: null, mode: 'all', selected: null, q: '', sp: 'month', from: '', to: '', cat: null }; // cat: 통계에서 누른 분류 { kind, category } // q: 검색어, sp: 검색 기간(기본 보고 있는 달)
@@ -266,85 +267,6 @@ function openPinChange(me) {
 }
 
 /* ---------- 내역 추가/수정 폼 (반복 설정 바꾸기도 같은 폼) ---------- */
-function repeatSection(rule, startDate) {
-  if (!state.repeatReady) {
-    return `<div class="field"><span class="label">반복</span><p class="note" style="margin:0">반복을 쓰려면 Supabase 에서 <b>supabase/ledger-repeat.sql</b> 을 한 번 실행해주세요.</p></div>`;
-  }
-  const freq = rule?.freq || 'none';
-  const shift = rule?.shift || 'none';
-  const radio = (name, v, label, on, extra = '') =>
-    `<label class="chip pick"><input type="radio" name="${name}" value="${v}" data-change="ledger-rep" ${on ? 'checked' : ''} ${extra}><span>${label}</span></label>`;
-  return `<div class="field lg-rep"><span class="label">반복</span>
-    <div class="chips">
-      ${rule ? '' : radio('freq', 'none', '안 함', freq === 'none')}
-      ${radio('freq', 'weekly', '매주', freq === 'weekly')}
-      ${radio('freq', 'monthly', '매월', freq === 'monthly')}
-      ${radio('freq', 'yearly', '매년', freq === 'yearly')}
-    </div>
-    <div class="lg-rep-opts" ${freq === 'none' ? 'hidden' : ''}>
-      <p class="rep-hint"></p>
-      <div class="chips rep-mday" data-v="${rule?.last_day ? 'lastday' : rule?.month_week === -1 ? 'lastwd' : rule?.month_week ? 'nth' : 'date'}" ${freq === 'monthly' ? '' : 'hidden'}></div>
-      <div class="field"><span class="label">주말·공휴일이면</span><div class="chips">
-        ${['none', 'before', 'after'].map((v) => radio('shift', v, SHIFT_LABEL[v], shift === v)).join('')}
-      </div></div>
-      <div class="field"><span class="label">끝나는 날 (선택)</span><input type="date" name="rep_end" value="${rule?.end_date || ''}" min="${startDate}"></div>
-      <p class="rep-next"></p>
-    </div>
-  </div>`;
-}
-
-/** 매월 기준 → { last_day, month_week } */
-function monthlyRule(freq, mday, start) {
-  if (freq !== 'monthly') return { last_day: false, month_week: null };
-  if (mday === 'lastday') return { last_day: true, month_week: null };
-  if (mday === 'nth') return { last_day: false, month_week: weekOfMonth(start).nth };
-  if (mday === 'lastwd') return { last_day: false, month_week: -1 };
-  return { last_day: false, month_week: null };
-}
-
-/** 반복 설명과 다음 날짜 미리보기를 폼 값에 맞춤 */
-function syncRep(f) {
-  const box = f.querySelector('.lg-rep');
-  if (!box) return;
-  const freq = f.elements.freq?.value || 'none';
-  box.querySelector('.lg-rep-opts').hidden = freq === 'none';
-  const mdayBox = box.querySelector('.rep-mday');
-  mdayBox.hidden = freq !== 'monthly';
-  if (freq === 'none') return;
-  const start = f.elements.entry_date.value || todayISO();
-  // 매월: 시작 날짜로 고를 수 있는 기준 (25일 / 넷째 화요일 / 마지막 화요일 / 말일)
-  const { nth, isLast } = weekOfMonth(start);
-  const wd = KO_DOW[dow(start)];
-  const opts = [
-    ['date', `${Number(start.slice(8))}일`],
-    ['nth', `${weekName(nth)} ${wd}요일`],
-    ...(isLast ? [['lastwd', `마지막 ${wd}요일`]] : []),
-    ['lastday', '말일'],
-  ];
-  const cur = f.elements.mday?.value || mdayBox.dataset.v || 'date';
-  const sel = opts.some(([v]) => v === cur) ? cur : 'date';
-  mdayBox.innerHTML = opts
-    .map(([v, label]) => `<label class="chip pick"><input type="radio" name="mday" value="${v}" data-change="ledger-rep" ${v === sel ? 'checked' : ''}><span>${esc(label)}</span></label>`)
-    .join('');
-  mdayBox.dataset.v = sel;
-  const r = {
-    freq,
-    start_date: start,
-    ...monthlyRule(freq, sel, start),
-    shift: f.elements.shift.value || 'none',
-    end_date: f.elements.rep_end.value || null,
-  };
-  box.querySelector('.rep-hint').textContent = `🔁 ${repeatLabel(r)}`;
-  const today = todayISO();
-  const next = repeatOccurrences(r, horizonOf(today, 14), A.ledgerHolidays())
-    .filter((o) => o.entry_date >= today)
-    .slice(0, 3)
-    .map((o) => `${shortDate(o.entry_date)}(${KO_DOW[dow(o.entry_date)]})${o.entry_date !== o.repeat_date ? '*' : ''}`);
-  box.querySelector('.rep-next').textContent = next.length
-    ? `다음: ${next.join(', ')}${next.some((x) => x.endsWith('*')) ? '  (* 쉬는 날이라 옮긴 날)' : ''}`
-    : '';
-}
-
 function openEntryForm(entry = null, { rule = null } = {}) {
   const me = A.ledgerMe();
   if (!me) return openUnlock({ then: 'add' });
@@ -393,7 +315,7 @@ function openEntryForm(entry = null, { rule = null } = {}) {
           .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="checkbox" name="share" value="${m.id}" ${shared.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
           .join('')}</div>
       </div>
-      ${entry ? '' : repeatSection(rule, dateVal)}
+      ${entry ? '' : state.repeatReady ? repeatSection(rule, dateVal) : repeatNotReady('supabase/ledger-repeat.sql')}
       <div class="form-actions">
         ${entry ? `<button type="button" class="btn danger" data-act="ledger-delete" data-id="${entry.id}">${entry.repeat_id ? '이 날만 삭제' : '삭제'}</button>` : ''}
         <button type="submit" class="btn primary">${e ? '저장' : '추가'}</button>

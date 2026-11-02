@@ -50,3 +50,4 @@ input[type=time] { width: 100%; min-height: 46px; padding: 8px 12px; border-radi
 /* 공유 대상이 지정된 일정 표시 */
 .sch-share { color: var(--muted); }
 .share-hint { display: block; margin: 6px 0 0; font-size: 13px; }
+.sch-rep { font-size: 13px; }
