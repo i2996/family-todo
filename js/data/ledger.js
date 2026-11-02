@@ -22,3 +22,24 @@ export const setPin = async (memberId, pin, oldPin = null) =>
   unwrap(await supabase.rpc('ledger_set_pin', { p_member: memberId, p_pin: pin, p_old: oldPin }));
 
 export const lock = async (sid) => unwrap(await supabase.rpc('ledger_lock', { p_space: sid }));
+
+/* ---------- 반복 규칙 (ledger-repeat.sql) ---------- */
+export const listRepeats = async (sid) =>
+  unwrap(await supabase.from('ledger_repeats').select('*').eq('space_id', sid).order('created_at'));
+
+export const insertRepeat = async (sid, p) =>
+  unwrap(await supabase.from('ledger_repeats').insert({ ...p, space_id: sid }).select().single());
+
+export const updateRepeat = async (id, p) => unwrap(await supabase.from('ledger_repeats').update(p).eq('id', id).select().single());
+
+export const deleteRepeat = async (id) => unwrap(await supabase.from('ledger_repeats').delete().eq('id', id));
+
+/** 반복 내역 한꺼번에 넣기 (이미 있는 날짜는 건너뜀) */
+export const upsertRepeatEntries = async (sid, rows) =>
+  rows.length
+    ? unwrap(await supabase.from('ledger_entries').upsert(rows.map((r) => ({ ...r, space_id: sid })), { onConflict: 'repeat_id,repeat_date', ignoreDuplicates: true }))
+    : null;
+
+/** 그 반복의 오늘 이후 내역 중 따로 고치지 않은 것 지우기 */
+export const deleteFutureOfRepeat = async (repeatId, today) =>
+  unwrap(await supabase.from('ledger_entries').delete().eq('repeat_id', repeatId).gt('entry_date', today).eq('repeat_locked', false));

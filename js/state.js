@@ -19,6 +19,8 @@ export const state = {
   ledger: [], // 가계부 내역 (서버가 이 기기에 보여도 되는 것만 줌)
   ledgerStatus: [], // [{ member_id, has_pin, is_me }]
   ledgerReady: true, // ledger.sql 이 적용돼 있는지
+  ledgerRepeats: [], // 내 반복 규칙 (만든 사람에게만 보임)
+  repeatReady: true, // ledger-repeat.sql 이 적용돼 있는지
   events: [],
   eventsReady: true, // events.sql 이 적용돼 있는지
   tab: 'home', // 'home' | 'tasks' | 'schedule' | 'food' | 'ledger'

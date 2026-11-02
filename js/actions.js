@@ -16,6 +16,7 @@ import * as backupDb from './data/backup.js';
 import { isRecurring } from './logic/recurrence.js';
 import { prefs } from './prefs.js';
 import { addDays, todayISO, shortDate } from './logic/dates.js';
+import { repeatOccurrences, horizonOf } from './logic/ledger.js';
 import * as F from './logic/food.js';
 
 const sid = () => state.space.id;
@@ -52,11 +53,21 @@ async function loadSettings() {
 /** 가계부(ledger.sql)가 없어도 나머지 앱은 정상 동작. 보이는 내역은 서버가 PIN 기준으로 걸러줌 */
 async function loadLedger() {
   try {
-    const [ledger, ledgerStatus] = await Promise.all([ledgerDb.listEntries(sid()), ledgerDb.status(sid())]);
-    return { ledger, ledgerStatus, ledgerReady: true };
+    const [ledger, ledgerStatus, rep] = await Promise.all([ledgerDb.listEntries(sid()), ledgerDb.status(sid()), loadRepeats()]);
+    return { ledger, ledgerStatus, ledgerReady: true, ...rep };
   } catch (e) {
     console.warn('가계부를 불러오지 못했어요 (supabase/ledger.sql 실행 필요)', e);
-    return { ledger: [], ledgerStatus: [], ledgerReady: false };
+    return { ledger: [], ledgerStatus: [], ledgerReady: false, ledgerRepeats: [], repeatReady: false };
+  }
+}
+
+/** 반복 규칙(ledger-repeat.sql)이 없어도 가계부는 정상 동작 */
+async function loadRepeats() {
+  try {
+    return { ledgerRepeats: await ledgerDb.listRepeats(sid()), repeatReady: true };
+  } catch (e) {
+    console.warn('가계부 반복을 불러오지 못했어요 (supabase/ledger-repeat.sql 실행 필요)', e);
+    return { ledgerRepeats: [], repeatReady: false };
   }
 }
 
@@ -602,24 +613,113 @@ export async function addLedger(p) {
   set({ ledger: [row, ...state.ledger] });
 }
 export async function saveLedger(id, p) {
+  const old = state.ledger.find((e) => e.id === id);
+  if (old && old.repeat_id) p = { ...p, repeat_locked: true }; // 반복 내역을 하나만 고치면 반복 설정이 바뀌어도 그대로 둠
   const row = await ledgerDb.updateEntry(id, p);
   set({ ledger: state.ledger.map((e) => (e.id === id ? row : e)) });
 }
 export async function removeLedger(id) {
+  const e = state.ledger.find((x) => x.id === id);
+  const rule = e && e.repeat_id && state.ledgerRepeats.find((r) => r.id === e.repeat_id);
+  if (rule && e.repeat_date) {
+    // 반복 내역 하나만 지우기: 그 날짜는 다시 만들지 않도록 기억
+    const row = await ledgerDb.updateRepeat(rule.id, { skip_dates: [...new Set([...(rule.skip_dates || []), e.repeat_date])] });
+    set({ ledgerRepeats: state.ledgerRepeats.map((r) => (r.id === rule.id ? row : r)) });
+  }
   await ledgerDb.deleteEntry(id);
   set({ ledger: state.ledger.filter((e) => e.id !== id) });
 }
 /** PIN 으로 열기. 'ok' 이면 그 사람에게 보이는 내역으로 다시 불러옴 */
 export async function unlockLedger(memberId, pin) {
   const r = await ledgerDb.unlock(memberId, pin);
-  if (r === 'ok') await reloadLedger();
+  if (r === 'ok') {
+    await reloadLedger();
+    syncLedgerRepeats().catch(console.error);
+  }
   return r;
 }
 export async function setLedgerPin(memberId, pin, oldPin = null) {
   const r = await ledgerDb.setPin(memberId, pin, oldPin);
-  if (r === 'ok') await reloadLedger();
+  if (r === 'ok') {
+    await reloadLedger();
+    syncLedgerRepeats().catch(console.error);
+  }
   return r;
 }
+/* ---------- 가계부 반복 ---------- */
+/** 가족이 직접 추가한 쉬는 날 [{ date, name }] */
+export const ledgerHolidays = () => (Array.isArray(state.settings.ledger_holidays) ? state.settings.ledger_holidays : []);
+
+/**
+ * 내 반복 규칙대로 내역을 몇 달 앞까지 채워 넣고, 쉬는 날 목록이 바뀌었으면 앞으로의 날짜를 맞춘다.
+ * (반복 내역은 만든 사람 기기에서만 만들어짐)
+ */
+let syncing = null;
+export function syncLedgerRepeats() {
+  if (!syncing) syncing = doSyncRepeats().finally(() => (syncing = null));
+  return syncing;
+}
+async function doSyncRepeats() {
+  const me = ledgerMe();
+  if (!state.space || !state.ledgerReady || !state.repeatReady || !me) return;
+  const today = todayISO();
+  const until = horizonOf(today, 3);
+  const extra = ledgerHolidays();
+  const inserts = [];
+  const fixes = [];
+  for (const r of state.ledgerRepeats.filter((x) => x.created_by === me)) {
+    const have = new Map(state.ledger.filter((e) => e.repeat_id === r.id).map((e) => [e.repeat_date, e]));
+    for (const o of repeatOccurrences(r, until, extra)) {
+      const e = have.get(o.repeat_date);
+      if (!e) {
+        inserts.push({
+          ...o, repeat_id: r.id, kind: r.kind, amount: r.amount, category: r.category, memo: r.memo,
+          created_by: r.created_by, is_public: r.is_public, shared_with: r.shared_with || [],
+        });
+      } else if (!e.repeat_locked && e.entry_date > today && e.entry_date !== o.entry_date && o.entry_date > today) {
+        fixes.push([e.id, o.entry_date]);
+      }
+    }
+  }
+  if (!inserts.length && !fixes.length) return;
+  await ledgerDb.upsertRepeatEntries(sid(), inserts);
+  await Promise.all(fixes.map(([id, entry_date]) => ledgerDb.updateEntry(id, { entry_date })));
+  await reloadLedger();
+}
+
+export async function addLedgerRepeat(rule) {
+  const row = await ledgerDb.insertRepeat(sid(), rule);
+  set({ ledgerRepeats: [...state.ledgerRepeats, row] });
+  await syncLedgerRepeats();
+}
+/** 반복 설정 바꾸기: 오늘 이후 내역(따로 고친 것 빼고)을 새 설정으로 다시 만든다 */
+export async function saveLedgerRepeat(id, patch) {
+  await ledgerDb.deleteFutureOfRepeat(id, todayISO());
+  const row = await ledgerDb.updateRepeat(id, patch);
+  const ledger = await ledgerDb.listEntries(sid());
+  set({ ledger, ledgerRepeats: state.ledgerRepeats.map((r) => (r.id === id ? row : r)) });
+  await syncLedgerRepeats();
+}
+/** 반복 그만하기: 지난 내역은 남기고 오늘 이후 내역과 규칙을 지운다 */
+export async function stopLedgerRepeat(id) {
+  await ledgerDb.deleteFutureOfRepeat(id, todayISO());
+  await ledgerDb.deleteRepeat(id);
+  await reloadLedger();
+}
+/** 직접 추가한 쉬는 날 저장 (가족 공용) → 앞으로의 반복 날짜를 다시 맞춤 */
+export async function saveLedgerHolidays(list) {
+  const before = state.settings;
+  const next = [...list].sort((a, b) => a.date.localeCompare(b.date));
+  set({ settings: { ...state.settings, ledger_holidays: next } });
+  try {
+    await settingsDb.saveSetting(sid(), 'ledger_holidays', next);
+  } catch (e) {
+    set({ settings: before });
+    throw e;
+  }
+  await syncLedgerRepeats().catch(() => {});
+}
+
 export async function lockLedger() {
   await ledgerDb.lock(sid());
   await reloadLedger();
