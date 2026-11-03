@@ -68,7 +68,7 @@ body[data-tab='ledger'] { --accent: var(--lav); --accent-d: var(--lav-d); --acce
 .lg-cal .day.sat .n { color: var(--sky-d); }
 .lg-cal .day.today .n { color: var(--ink); }
 .lg-holname { margin: 6px 2px 0; font-size: 14px; color: var(--rose-d); }
-.lg-tools { display: flex; justify-content: flex-end; margin-top: 16px; }
+.lg-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .lg-rep-opts { margin-top: 8px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); }
 .lg-rep-opts .field { margin-top: 10px; }
 .rep-hint { margin: 0 0 6px; font-size: 15px; }
