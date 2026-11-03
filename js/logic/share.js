@@ -3,7 +3,8 @@ import { labelDate, todayISO } from './dates.js';
 
 export function buildShareText(occ, assigneeLabel) {
   const t = occ.task;
-  const lines = ['[가족 할 일]', t.title, `담당: ${assigneeLabel}`, `날짜: ${labelDate(occ.date, todayISO())}`];
+  const time = t.task_time ? ` ${String(t.task_time).slice(0, 5)}` : '';
+  const lines = ['[가족 할 일]', t.title, `담당: ${assigneeLabel}`, `날짜: ${labelDate(occ.date, todayISO())}${time}`];
   if (t.memo) lines.push(`메모: ${t.memo}`);
   return lines.join('\n');
 }
