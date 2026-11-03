@@ -28,6 +28,10 @@ export function sortOccurrences(occs, members) {
     if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
+    // 같은 날 안에서는 시간 정한 할 일이 시간 순서로 먼저
+    const ta = a.task.task_time ? String(a.task.task_time).slice(0, 5) : '99:99';
+    const tb = b.task.task_time ? String(b.task.task_time).slice(0, 5) : '99:99';
+    if (ta !== tb) return ta < tb ? -1 : 1;
     const first = (t) => (order.has(assigneeIds(t)[0]) ? order.get(assigneeIds(t)[0]) : 99);
     const ma = first(a.task);
     const mb = first(b.task);

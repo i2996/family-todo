@@ -121,6 +121,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
         'title', 'task_date', 'start_date', 'due_date', 'memo', 'repeat_type', 'repeat_days', 'repeat_end', 'done_at',
       ]),
       repeat_interval: t.repeat_interval || 1,
+      ...(t.task_time ? { task_time: t.task_time } : {}), // 시간 (tasks-time.sql 적용 후 백업에만 있음)
       ...(t.source_key ? { source_key: t.source_key } : {}),
       done: !!t.done,
       assignee_ids: (Array.isArray(t.assignee_ids) ? t.assignee_ids : t.assignee_id ? [t.assignee_id] : [])

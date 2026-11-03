@@ -62,7 +62,8 @@ export function taskRow(occ, { showDate = false } = {}) {
     ? `<span class="who"><span class="who-one"><i class="dot"${ring ? ` style="background:${esc(ring)}"` : ''}></i>온 가족</span></span>`
     : `<span class="who">${ms.map((m) => `<span class="who-one"><i class="dot" style="--mc:${esc(m.color)}"></i>${esc(m.name)}</span>`).join('')}</span>`;
 
-  const tags = [who];
+  const time = t.task_time ? String(t.task_time).slice(0, 5) : '';
+  const tags = [...(time ? [`<span class="tag time">⏰ ${esc(time)}</span>`] : []), who];
   if (occ.done && doneBy) tags.push(`<span class="tag done-by" style="--mc:${esc(doneBy.color)}"><i class="dot"></i>${esc(doneBy.name)} 완료</span>`);
   if (occ.overdue) tags.push('<span class="tag late">밀림</span>');
   if (showDate) tags.push(`<span class="tag">${shortDate(occ.date)}</span>`);

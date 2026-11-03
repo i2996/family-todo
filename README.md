@@ -38,6 +38,7 @@ supabase/multi-assign.sql                     담당자 여러 명 + 완료한 �
 supabase/push.sql, functions/notify-task/     새 할 일 알림(웹 푸시) — 설정은 supabase/PUSH-SETUP.md
 supabase/events-share.sql                     일정 공유 대상 지정 (비우면 온 가족, 고르면 작성자+고른 사람만)
 supabase/events-repeat.sql                    일정 반복(매주·매월·매년) + 주말·공휴일이면 앞/다음 영업일
+supabase/tasks-time.sql                       할 일 시간 지정 (선택)
 supabase/ledger.sql                           가계부 + 구성원별 PIN 잠금 (서버가 PIN 을 푼 기기 기준으로 내역을 걸러줌)
 supabase/ledger-repeat.sql                    가계부 반복(매주·매월·매년) + 주말·공휴일이면 앞/다음 영업일
 ```
