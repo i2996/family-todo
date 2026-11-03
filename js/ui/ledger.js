@@ -182,7 +182,7 @@ export function renderLedger() {
   </div>
   ${catHtml}
   <form data-form="ledger-search" class="lg-search" role="search" autocomplete="off">
-    <input type="search" name="q" enterkeyhint="search" maxlength="40" placeholder="🔍 내역 검색 (내용·분류·금액·이름)" value="${esc(view.q)}" aria-label="가계부 내역 검색">
+    <input type="search" name="q" enterkeyhint="search" maxlength="40" placeholder="🔍 내역 검색 (내용·금액·이름)" value="${esc(view.q)}" aria-label="가계부 내역 검색">
     <button type="submit" class="chip sm">검색</button>
     ${searching ? '<button type="button" class="chip sm" data-act="ledger-search-clear">지우기</button>' : ''}
     <div class="chips lg-period" role="radiogroup" aria-label="검색 기간">${PERIODS.map(
