@@ -15,7 +15,8 @@
 // 내용(본문)/제목에 따로 적용하는 건 설정 → 글꼴 의 '어디에 적용할까요?' 에서 골라요.
 // ============================================================
 export const FONTS = [
-  { id: 'default', label: '기본', name: null }, // css/style.css 의 기본 글꼴 그대로
+  { id: 'default', label: '기본', name: null }, // css/style.css 의 기본 글꼴 그대로 (내용: 이서윤체, 제목: Jua)
+  { id: 'IsYun', label: '이서윤체', name: 'IsYun' },
 
   // style.css 에 @font-face 로 이미 들어 있는 글꼴 (이름은 마음대로 바꿔도 돼요)
   { id: 'Isamanru', label: '이사만루', name: 'Isamanru' },
@@ -25,7 +26,6 @@ export const FONTS = [
   { id: 'OkDandan', label: 'OK 단단체', name: 'OkDandan' },
   { id: 'OngleipParkDahyeon', label: '온글잎 박다현체', name: 'OngleipParkDahyeon' },
   { id: 'beloved', label: '그리운 묘은또박체', name: 'BelovedMyoeunttobak' },
-  { id: 'IsYun', label: '이서윤체', name: 'IsYun' },
 
   // ↓ 새 글꼴 추가 예시 (앞의 // 를 지우고 고쳐 쓰세요)
   // { id: 'myfont', label: '내 글꼴', name: 'MyFont', url: 'fonts/MyFont.woff2' },
