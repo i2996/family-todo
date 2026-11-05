@@ -40,6 +40,7 @@ supabase/events-share.sql                     일정 공유 대상 지정 (비�
 supabase/events-repeat.sql                    일정 반복(매주·매월·매년) + 주말·공휴일이면 앞/다음 영업일
 supabase/tasks-time.sql                       할 일 시간 지정 (선택)
 supabase/reminders.sql                        시간 맞춘 알림(할 일·일정): 정각/10분/30분/1시간/하루 전 — 1분마다 서버가 보냄
+.github/workflows/deploy-functions.yml        알림 함수(notify-task) 자동 배포 — 저장소 Secrets 에 SUPABASE_ACCESS_TOKEN 필요
 supabase/ledger.sql                           가계부 + 구성원별 PIN 잠금 (서버가 PIN 을 푼 기기 기준으로 내역을 걸러줌)
 supabase/ledger-repeat.sql                    가계부 반복(매주·매월·매년) + 주말·공휴일이면 앞/다음 영업일
 ```
