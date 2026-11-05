@@ -499,6 +499,18 @@ export async function undoEatDay(date) {
 
 /* ---------- 냉동 반찬 해동 → '해동 알림 받기' 권한자에게 할 일 자동 등록 ---------- */
 const thawKey = (itemId, mealDate) => `thaw:${itemId}:${mealDate}`;
+/**
+ * 이 기기에서 가계부 탭을 보여줄지. 구성원 권한 '가계부 탭 보기'를 끈 사람의 폰에서는 숨김.
+ * (이 기기 주인을 모르거나, 켜진 사람이 아무도 없으면 보여줌)
+ */
+export function ledgerTabVisible() {
+  if (!state.members.some((m) => 'can_ledger' in m)) return true; // member-ledger.sql 적용 전
+  if (!state.members.some((m) => m.can_ledger !== false)) return true;
+  const id = prefs.getDeviceMember();
+  const me = state.members.find((m) => m.id === id);
+  return !me || me.can_ledger !== false;
+}
+
 /** member-perms.sql 이 적용돼 있는지 (구성원 정보에 can_thaw 칸이 있으면 적용된 것) */
 export const thawSupported = () => state.members.some((m) => 'can_thaw' in m);
 export const hasThawers = () => state.members.some((m) => m.can_thaw);
