@@ -5,7 +5,7 @@ import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId, NEUTRAL } from './components.js';
 import { toItems, onDate, byDateMap, visibleEvents, sharedOf, eventRule } from '../logic/schedule.js';
 import { repeatLabel } from '../logic/ledger.js';
-import { repeatSection, syncRep, readRepeat } from './repeat.js';
+import { repeatSection, syncRep, readRepeat, remindField, readRemind } from './repeat.js';
 import { renderPlanBox } from './plans.js';
 import { todayISO, addDays, parts, pad, startOfWeekSun, eachDay, KO_DOW, longDate, labelDate, shortRange } from '../logic/dates.js';
 
@@ -26,7 +26,7 @@ function shareLabel(i) {
 /** 일정 한 줄 (일정 탭, 홈 공용). when: 홈에서 앞에 붙이는 날짜 문구 */
 export function scheduleRow(i, { when = '' } = {}) {
   const by = i.by ? memberById(i.by) : null;
-  const sub = [i.time, i.start !== i.end ? shortRange(i.start, i.end) : '', i.place].filter(Boolean).map(esc).join(' · ');
+  const sub = [i.time ? `${i.time}${i.remind ? ' 🔔' : ''}` : '', i.start !== i.end ? shortRange(i.start, i.end) : '', i.place].filter(Boolean).map(esc).join(' · ');
   return `<li class="sch-item">
     <button class="sch-main" data-act="${i.kind === 'trip' ? 'open-trip' : 'edit-event'}" data-id="${i.id}"${i.occ ? ` data-occ="${i.occ}" data-day="${i.start}"` : ''}>
       ${when ? `<span class="sch-when">${esc(when)}</span>` : ''}
@@ -142,9 +142,10 @@ export function openEventForm({ event = null, date = null, occ = null, day = nul
       <div class="field"><span class="label">끝나는 날 (여러 날이면)</span><input type="date" name="end_date" value="${endVal}"></div>
     </div>
     <div class="grid2">
-      <div class="field time-field"><span class="label">시간 (선택)</span><input type="time" name="start_time" value="${e?.start_time ? String(e.start_time).slice(0, 5) : ''}"></div>
+      <div class="field time-field"><span class="label">시간 (선택)</span><input type="time" name="start_time" value="${e?.start_time ? String(e.start_time).slice(0, 5) : ''}" data-change="remind-time"></div>
       <div class="field"><span class="label">장소 (선택)</span><input name="place" maxlength="60" value="${esc(e?.place)}"></div>
     </div>
+    <div class="ev-remind">${remindField(e ? e.remind_offsets : [0], !!e?.start_time)}</div>
     <div class="field"><span class="label">메모 (선택)</span><textarea name="memo" rows="2" maxlength="300">${esc(e?.memo)}</textarea></div>
     <div class="field"><span class="label">작성자</span>
       <div class="chips">${state.members
@@ -271,6 +272,8 @@ export const changes = {
     const f = el.closest('form');
     const trip = f.elements.kind.value === 'trip';
     f.querySelector('.time-field').hidden = trip; // 외출/여행에는 시간 입력 없음
+    const er = f.querySelector('.ev-remind');
+    if (er) er.hidden = trip; // 외출/여행은 시간 알림 없음
     f.querySelector('.share-field').hidden = trip; // 외출/여행은 온 가족 공개
     const rf = f.querySelector('.rep-field');
     if (rf) rf.hidden = trip; // 외출/여행은 반복 없음
@@ -301,6 +304,8 @@ export const forms = {
     const r = isTrip || f.dataset.split ? null : readRepeat(f, p.start_date);
     if (r && r.end_date && r.end_date < p.start_date) return toast('반복 끝나는 날이 시작 날짜보다 빠를 수 없어요');
     const old = f.dataset.id ? state.events.find((x) => x.id === f.dataset.id) : null;
+    const remind = isTrip ? undefined : readRemind(f, p.start_time);
+    if (remind !== undefined) p.remind_offsets = remind; // 시간 맞춘 알림 (정각/10분 전/…)
     if (r || (old && 'repeat_freq' in old) || (f.dataset.split && state.events.some((x) => 'repeat_freq' in x))) {
       Object.assign(p, {
         repeat_freq: r ? r.freq : null,
@@ -341,6 +346,7 @@ export const forms = {
     } catch (err) {
       btn.disabled = false;
       const msg = String(err && err.message);
+      if (msg.includes('remind_offsets')) return toast('알림을 쓰려면 먼저 supabase/reminders.sql 을 실행해주세요');
       if (msg.includes('repeat_')) return toast('반복을 쓰려면 먼저 supabase/events-repeat.sql 을 실행해주세요');
       toast(msg.includes('shared_with') ? '공유할 사람을 지정하려면 먼저 supabase/events-share.sql 을 실행해주세요' : errMsg(err));
     }

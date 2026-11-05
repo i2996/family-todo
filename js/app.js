@@ -115,11 +115,12 @@ async function openSpace(spaceId) {
   if (dm) A.syncPush(dm).catch(() => {}); // 알림을 켠 기기면 서버의 구독 정보를 최신으로
   A.syncThawTasks().catch(() => {}); // 식단의 냉동 반찬 해동 할 일을 최신으로
   A.syncLedgerRepeats().catch(console.error); // 가계부 반복 내역을 몇 달 앞까지 채움
+  A.queueReminderSync(); // 시간 맞춘 알림 예약을 30일 앞까지 맞춤
 }
 
 // 폰을 다시 켜서 앱으로 돌아오면 최신 상태로 맞추고, 날짜가 바뀌었으면 화면도 갱신
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.space) A.loadAll().then(() => A.syncLedgerRepeats()).catch(() => {});
+  if (document.visibilityState === 'visible' && state.space) A.loadAll().then(() => { A.queueReminderSync(); return A.syncLedgerRepeats(); }).catch(() => {});
 });
 
 /* ---------- 시작 ---------- */

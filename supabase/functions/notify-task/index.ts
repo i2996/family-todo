@@ -1,5 +1,5 @@
 // 새 할 일이 배정되면 해당 가족의 폰으로 웹 푸시 알림을 보내는 함수
-// DB 트리거(supabase/push.sql)가 호출한다. 배포: npx supabase functions deploy notify-task --no-verify-jwt
+// DB 트리거(supabase/push.sql)와, 시간 맞춘 알림 예약(supabase/reminders.sql 의 1분마다 실행)이 호출한다. 배포: npx supabase functions deploy notify-task --no-verify-jwt
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 import { pickRecipients, buildMessage } from './logic.js';

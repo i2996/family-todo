@@ -5,6 +5,7 @@ import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, deviceMemberId } from './components.js';
 import { openMembers } from './settings.js';
 import { todayISO, addDays, KO_DOW } from '../logic/dates.js';
+import { remindField, readRemind } from './repeat.js';
 
 const UNITS = { daily: '일', weekly: '주', monthly: '개월', yearly: '년' };
 
@@ -48,7 +49,8 @@ export function openTaskForm({ task = null, date = null, tripId = null, assignee
       </div>
     </div>
     <div class="field task-time-field"><span class="label">시간 (선택)</span>
-      <input type="time" name="task_time" value="${t?.task_time ? String(t.task_time).slice(0, 5) : ''}"></div>
+      <input type="time" name="task_time" value="${t?.task_time ? String(t.task_time).slice(0, 5) : ''}" data-change="remind-time"></div>
+    ${remindField(t ? t.remind_offsets : [0], !!t?.task_time)}
 
     <details class="more" ${hasAdvanced ? 'open' : ''}>
       <summary>상세 옵션</summary>
@@ -178,6 +180,8 @@ export const forms = {
     // 시간: tasks-time.sql 을 안 돌린 곳에서도 시간 없는 할 일은 저장되게, 시간을 넣었거나 칸이 있을 때만 보냄
     const time = fd.get('task_time') || null;
     if (time || state.tasks.some((x) => 'task_time' in x)) p.task_time = time;
+    const remind = readRemind(f, time);
+    if (remind !== undefined) p.remind_offsets = remind; // 시간 맞춘 알림 (정각/10분 전/…)
     if (!f.dataset.id && A.pushConfigured()) p.created_by = deviceMemberId(); // 알림 기능을 설정했을 때만 사용 (본인에겐 알림 안 보내려고)
     if (!p.task_date) return toast('날짜를 선택해주세요');
     if (p.start_date && p.due_date && p.due_date < p.start_date) return toast('마감일이 시작일보다 빠를 수 없어요');
@@ -192,7 +196,9 @@ export const forms = {
       toast(f.dataset.id ? '저장했어요' : '추가했어요');
     } catch (e) {
       btn.disabled = false;
-      toast(String(e && e.message).includes('task_time') ? '시간을 넣으려면 먼저 supabase/tasks-time.sql 을 실행해주세요' : errMsg(e));
+      const msg = String(e && e.message);
+      if (msg.includes('remind_offsets')) return toast('알림을 쓰려면 먼저 supabase/reminders.sql 을 실행해주세요');
+      toast(msg.includes('task_time') ? '시간을 넣으려면 먼저 supabase/tasks-time.sql 을 실행해주세요' : errMsg(e));
     }
   },
 };

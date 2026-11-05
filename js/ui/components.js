@@ -63,7 +63,8 @@ export function taskRow(occ, { showDate = false } = {}) {
     : `<span class="who">${ms.map((m) => `<span class="who-one"><i class="dot" style="--mc:${esc(m.color)}"></i>${esc(m.name)}</span>`).join('')}</span>`;
 
   const time = t.task_time ? String(t.task_time).slice(0, 5) : '';
-  const tags = [...(time ? [`<span class="tag time">⏰ ${esc(time)}</span>`] : []), who];
+  const bell = time && Array.isArray(t.remind_offsets) && t.remind_offsets.length ? ' 🔔' : ''; // 시간 맞춘 알림이 있으면
+  const tags = [...(time ? [`<span class="tag time">⏰ ${esc(time)}${bell}</span>`] : []), who];
   if (occ.done && doneBy) tags.push(`<span class="tag done-by" style="--mc:${esc(doneBy.color)}"><i class="dot"></i>${esc(doneBy.name)} 완료</span>`);
   if (occ.overdue) tags.push('<span class="tag late">밀림</span>');
   if (showDate) tags.push(`<span class="tag">${shortDate(occ.date)}</span>`);

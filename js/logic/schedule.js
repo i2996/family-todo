@@ -38,6 +38,7 @@ const eventItem = (e) => ({
   kind: 'event', id: e.id, title: e.title, start: e.start_date, end: e.end_date || e.start_date,
   time: e.start_time ? String(e.start_time).slice(0, 5) : null, place: e.place || '', memo: e.memo || '',
   by: e.created_by || null, icon: '📌', shared: sharedOf(e), repeat: !!e.repeat_freq, occ: null,
+  remind: !!(e.start_time && Array.isArray(e.remind_offsets) && e.remind_offsets.length),
 });
 
 /**
