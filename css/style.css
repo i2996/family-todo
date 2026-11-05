@@ -421,3 +421,4 @@ textarea { resize: vertical; }
 .task.done .task-title, .task.done .task-memo, .task.done .who, .task.done .tag:not(.done-by) { opacity: .45; }
 .tag.time { background: var(--accent-soft); color: var(--ink); }
 .task-time-field input { max-width: 180px; }
+.nav-item[hidden] { display: none !important; }

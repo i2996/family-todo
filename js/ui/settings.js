@@ -166,7 +166,7 @@ export function openMembers() {
     body: `<ul class="member-list">
       ${state.members
         .map(
-          (m) => `<li><i class="dot lg" style="--mc:${esc(m.color)}"></i><b>${esc(m.name)}</b>${m.can_thaw ? '<span class="badge">해동</span>' : ''}${m.can_approve ? '<span class="badge">승인</span>' : ''}
+          (m) => `<li><i class="dot lg" style="--mc:${esc(m.color)}"></i><b>${esc(m.name)}</b>${m.can_thaw ? '<span class="badge">해동</span>' : ''}${m.can_approve ? '<span class="badge">승인</span>' : ''}${m.can_ledger === false ? '<span class="badge">가계부 숨김</span>' : ''}
             <button class="chip sm" data-act="member-edit" data-id="${m.id}">수정</button></li>`
         )
         .join('') || '<li class="empty">아직 구성원이 없어요</li>'}
@@ -192,7 +192,8 @@ export function openMemberForm(member = null) {
       </div>
       <div class="field"><span class="label">권한</span>
         <label class="perm"><input type="checkbox" name="can_thaw" ${m?.can_thaw ? 'checked' : ''}><span><b>해동 알림 받기</b><small>냉동 반찬 해동 할 일과 알림이 이 사람에게만 가요</small></span></label>
-        <label class="perm"><input type="checkbox" name="can_approve" ${m?.can_approve ? 'checked' : ''}><span><b>구매 요청 승인</b><small>구매 목록의 요청을 승인·반려할 수 있어요</small></span></label></div>
+        <label class="perm"><input type="checkbox" name="can_approve" ${m?.can_approve ? 'checked' : ''}><span><b>구매 요청 승인</b><small>구매 목록의 요청을 승인·반려할 수 있어요</small></span></label>
+        <label class="perm"><input type="checkbox" name="can_ledger" ${m?.can_ledger === false ? '' : 'checked'}><span><b>가계부 탭 보기</b><small>끄면 이 사람 폰에서 가계부 탭이 사라져요 (가족 중 최소 한 명은 켜져 있어야 해요)</small></span></label></div>
       <div class="form-actions">
         ${m ? `<button type="button" class="btn danger" data-act="member-delete" data-id="${m.id}">삭제</button>` : ''}
         <button type="submit" class="btn primary">${m ? '저장' : '추가'}</button>
@@ -502,12 +503,19 @@ export const forms = {
     const thaw = f.elements.can_thaw.checked;
     const approve = f.elements.can_approve.checked;
     if (thaw || approve || state.members.some((x) => 'can_thaw' in x)) Object.assign(p, { can_thaw: thaw, can_approve: approve }); // member-perms.sql 을 안 돌렸으면 건드리지 않음
+    // 가계부 탭 보기: 끌 때나 칸이 있을 때만 보냄 (member-ledger.sql 을 안 돌렸으면 건드리지 않음)
+    const ledger = f.elements.can_ledger.checked;
+    if (!ledger && !state.members.some((x) => x.id !== f.dataset.id && x.can_ledger !== false))
+      return toast('가계부 탭을 볼 사람이 가족 중 한 명은 있어야 해요');
+    if (!ledger || state.members.some((x) => 'can_ledger' in x)) p.can_ledger = ledger;
     try {
       if (f.dataset.id) await A.saveMember(f.dataset.id, p);
       else await A.addMember(p);
       openMembers();
     } catch (e) {
-      toast(/can_thaw|can_approve/.test(String(e && e.message)) ? '먼저 supabase/member-perms.sql 을 실행해주세요' : errMsg(e));
+      const msg = String(e && e.message);
+      if (msg.includes('can_ledger')) return toast('먼저 supabase/member-ledger.sql 을 실행해주세요');
+      toast(/can_thaw|can_approve/.test(msg) ? '먼저 supabase/member-perms.sql 을 실행해주세요' : errMsg(e));
     }
   },
   'space-name': async (f) => {

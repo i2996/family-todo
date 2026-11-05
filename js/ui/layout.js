@@ -8,6 +8,7 @@ import { tripById } from './components.js';
 import { renderSchedule } from './schedule.js';
 import { renderFood } from './food.js';
 import { renderLedger } from './ledger.js';
+import { ledgerTabVisible } from '../actions.js';
 
 const TABS = [
   { id: 'home', ico: '🏠', label: '홈' },
@@ -36,6 +37,11 @@ export function mountShell() {
 export function render() {
   const view = document.getElementById('view');
   if (!view || !state.space) return;
+  // 가계부 탭 보기 권한이 꺼진 사람의 폰에서는 가계부 탭을 숨김
+  const showLedger = ledgerTabVisible();
+  const ledgerNav = document.querySelector('.nav-item[data-tab=ledger]');
+  if (ledgerNav) ledgerNav.hidden = !showLedger;
+  if (!showLedger && state.tab === 'ledger') state.tab = 'home';
   document.body.dataset.tab = state.tab; // CSS 가 탭마다 포인트 색을 바꿈
   document.getElementById('brand').textContent = `🫶🏻 ${state.space.name}`;
   const screens = { home: renderHome, tasks: renderTasks,
