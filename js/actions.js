@@ -10,6 +10,7 @@ import * as eventsDb from './data/events.js';
 import * as purchasesDb from './data/purchases.js';
 import * as plansDb from './data/plans.js';
 import * as ledgerDb from './data/ledger.js';
+import * as remindersDb from './data/reminders.js';
 import * as settingsDb from './data/settings.js';
 import * as pushDb from './data/push.js';
 import * as backupDb from './data/backup.js';
@@ -17,13 +18,14 @@ import { isRecurring } from './logic/recurrence.js';
 import { prefs } from './prefs.js';
 import { addDays, todayISO, shortDate } from './logic/dates.js';
 import { repeatOccurrences, horizonOf } from './logic/ledger.js';
+import { desiredReminders, diffReminders } from './logic/reminders.js';
 import * as F from './logic/food.js';
 
 const sid = () => state.space.id;
 
 /* ---------- 불러오기 ---------- */
 export async function loadAll() {
-  const [members, trips, tasks, completions, food, ev, days, buy, plan, cfg, money] = await Promise.all([
+  const [members, trips, tasks, completions, food, ev, days, buy, plan, cfg, money, rem] = await Promise.all([
     membersDb.listMembers(sid()),
     tripsDb.listTrips(sid()),
     tasksDb.listTasks(sid()),
@@ -35,8 +37,9 @@ export async function loadAll() {
     loadPlans(),
     loadSettings(),
     loadLedger(),
+    loadRemindReady(),
   ]);
-  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan, ...cfg, ...money });
+  set({ members, trips, tasks, completions, ...food, ...ev, ...days, ...buy, ...plan, ...cfg, ...money, ...rem });
 }
 
 /** 가족 공용 설정 테이블(space-settings.sql)이 없어도 앱은 정상 동작 (설정은 기본값) */
@@ -68,6 +71,17 @@ async function loadRepeats() {
   } catch (e) {
     console.warn('가계부 반복을 불러오지 못했어요 (supabase/ledger-repeat.sql 실행 필요)', e);
     return { ledgerRepeats: [], repeatReady: false };
+  }
+}
+
+/** 시간 맞춘 알림(reminders.sql)을 쓸 수 있는지 */
+async function loadRemindReady() {
+  try {
+    await remindersDb.listPending(sid(), new Date(Date.now() + 400 * 864e5).toISOString()); // 아무것도 안 나오는 조건으로 표만 확인
+    return { remindReady: true };
+  } catch (e) {
+    console.warn('시간 맞춘 알림을 쓸 수 없어요 (supabase/reminders.sql 실행 필요)', e);
+    return { remindReady: false };
   }
 }
 
@@ -185,14 +199,41 @@ export async function removeMember(id) {
   });
 }
 
+/* ---------- 시간 맞춘 알림 예약 ---------- */
+/**
+ * 할 일·일정의 시간과 고른 알림대로 30일 앞까지의 알림 예약표를 맞춘다. (보내는 건 서버가 1분마다)
+ * 가족 누구의 기기에서 해도 같은 결과라서, 앱을 열거나 할 일·일정을 바꿀 때마다 맞춤.
+ */
+let remSyncing = null;
+let remTimer = null;
+export function syncReminders() {
+  if (!remSyncing) remSyncing = doSyncReminders().finally(() => (remSyncing = null));
+  return remSyncing;
+}
+export function queueReminderSync() {
+  clearTimeout(remTimer);
+  remTimer = setTimeout(() => syncReminders().catch((e) => console.warn('알림 예약을 맞추지 못했어요', e)), 800);
+}
+async function doSyncReminders() {
+  if (!state.space || !state.remindReady || !pushDb.pushConfigured()) return;
+  const now = new Date();
+  const pending = await remindersDb.listPending(sid(), now.toISOString());
+  const want = desiredReminders({ tasks: state.tasks, events: state.eventsReady ? state.events : [] }, now, { days: 30, extra: ledgerHolidays() });
+  const { toInsert, toDelete } = diffReminders(want, pending);
+  if (toDelete.length) await remindersDb.deleteIds(toDelete);
+  if (toInsert.length) await remindersDb.insertMany(sid(), toInsert);
+}
+
 /* ---------- 할 일 ---------- */
 export async function addTask(p) {
   const row = await tasksDb.insertTask(sid(), p);
   set({ tasks: [...state.tasks, row] });
+  queueReminderSync();
 }
 export async function saveTask(id, p) {
   const row = await tasksDb.updateTask(id, p);
   set({ tasks: state.tasks.map((t) => (t.id === id ? row : t)) });
+  queueReminderSync();
 }
 export async function removeTask(id) {
   await tasksDb.deleteTask(id);
@@ -336,10 +377,12 @@ export async function removePurchase(id) {
 export async function addEvent(p) {
   const row = await eventsDb.insertEvent(sid(), p);
   set({ events: [...state.events, row] });
+  queueReminderSync();
 }
 export async function saveEvent(id, p) {
   const row = await eventsDb.updateEvent(id, p);
   set({ events: state.events.map((e) => (e.id === id ? row : e)) });
+  queueReminderSync();
 }
 export async function removeEvent(id) {
   await eventsDb.deleteEvent(id);

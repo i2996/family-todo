@@ -122,6 +122,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
       ]),
       repeat_interval: t.repeat_interval || 1,
       ...(t.task_time ? { task_time: t.task_time } : {}), // 시간 (tasks-time.sql 적용 후 백업에만 있음)
+      ...(Array.isArray(t.remind_offsets) && t.remind_offsets.length ? { remind_offsets: t.remind_offsets } : {}), // 시간 맞춘 알림
       ...(t.source_key ? { source_key: t.source_key } : {}),
       done: !!t.done,
       assignee_ids: (Array.isArray(t.assignee_ids) ? t.assignee_ids : t.assignee_id ? [t.assignee_id] : [])
@@ -199,6 +200,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
       created_by: memberMap.get(ev.created_by) || null,
       // 공유 대상 (events-share.sql 적용 후 백업에만 있음)
       ...(Array.isArray(ev.shared_with) ? { shared_with: ev.shared_with.map((m) => memberMap.get(m)).filter(Boolean) } : {}),
+      ...(Array.isArray(ev.remind_offsets) && ev.remind_offsets.length ? { remind_offsets: ev.remind_offsets } : {}), // 시간 맞춘 알림
       // 반복 (events-repeat.sql 적용 후 백업에만 있음)
       ...(ev.repeat_freq
         ? {

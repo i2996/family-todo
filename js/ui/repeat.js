@@ -5,6 +5,8 @@ import * as A from '../actions.js';
 import { esc } from './components.js';
 import { repeatLabel, repeatOccurrences, horizonOf, SHIFT_LABEL, weekName, weekOfMonth } from '../logic/ledger.js';
 import { todayISO, dow, shortDate, KO_DOW } from '../logic/dates.js';
+import { REMIND_OPTIONS } from '../logic/reminders.js';
+import { state } from '../state.js';
 
 /** 반복 SQL 을 아직 안 돌렸을 때 안내 */
 export const repeatNotReady = (file) =>
@@ -98,6 +100,32 @@ export function syncRep(f) {
     : '';
 }
 
+/* ---------- 시간 맞춘 알림 고르기 (할 일·일정 공용) ---------- */
+/** 알림 기능과 reminders.sql 이 준비돼 있을 때만 보여줌 */
+export const remindAvailable = () => A.pushConfigured() && state.remindReady;
+
+/** offs: 고른 알림(분). hasTime: 시간이 들어 있는지 (없으면 숨김) */
+export function remindField(offs, hasTime) {
+  if (!remindAvailable()) return '';
+  return `<div class="field remind-field" ${hasTime ? '' : 'hidden'}><span class="label">🔔 알림 <small>여러 개 고를 수 있어요</small></span>
+    <div class="chips">${REMIND_OPTIONS.map(
+      ([v, l]) => `<label class="chip pick sm"><input type="checkbox" name="remind" value="${v}" ${(offs || []).map(Number).includes(v) ? 'checked' : ''}><span>${l}</span></label>`
+    ).join('')}</div>
+    <small class="note remind-note">알림을 켠 가족의 폰으로 이 시간에 맞춰 알려줘요.</small></div>`;
+}
+
+/** 폼에서 고른 알림 → [분] 또는 null. 알림 칸이 없으면 undefined (저장할 때 보내지 않음) */
+export function readRemind(f, time) {
+  if (!f.querySelector('.remind-field')) return undefined;
+  const offs = time ? new FormData(f).getAll('remind').map(Number) : [];
+  return offs.length ? offs : null;
+}
+
 export const changes = {
   'rep-sync': (el) => syncRep(el.closest('form')),
+  // 시간을 넣어야 알림을 고를 수 있음
+  'remind-time': (el) => {
+    const box = el.closest('form')?.querySelector('.remind-field');
+    if (box) box.hidden = !el.value;
+  },
 };
