@@ -221,7 +221,9 @@ export const actions = {
   },
   'food-eat': async (el) => {
     try {
-      if ((await A.eatFoodItem(el.dataset.id)) === 'removed') toast('다 먹었어요! 목록에서 지웠어요');
+      const r = await A.eatFoodItem(el.dataset.id);
+      if (r === 'restocked') toast('다 먹었어요! 목록에서 지우고 할 일 탭 구매 목록(구매 예정)에 넣었어요');
+      else if (r === 'removed') toast('다 먹었어요! 목록에서 지웠어요');
     } catch (e) {
       toast(errMsg(e));
     }

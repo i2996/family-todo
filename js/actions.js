@@ -362,12 +362,36 @@ export async function removeFoodItem(id) {
   set({ foodItems: state.foodItems.filter((i) => i.id !== id), foodPlan: state.foodPlan.filter((r) => r.item_id !== id) });
   afterPlanChange();
 }
-/** '먹음' - 1끼/1개 줄이고, 0이 되면 목록에서 지운다. 반환: 'ok' | 'removed' */
+/**
+ * 다 먹은 식재료를 구매 목록 '구매 예정'에 넣기. 같은 이름이 아직 안 산 채로 있으면 넣지 않음.
+ * 반환: 'added' | 'exists' | null(구매 목록을 못 씀)
+ */
+async function restockIngredient(name) {
+  if (!state.purchasesReady) return null;
+  const key = String(name || '').trim().toLowerCase();
+  if (state.purchases.some((p) => p.status !== 'bought' && p.status !== 'rejected' && String(p.title).trim().toLowerCase() === key)) return 'exists';
+  const by = prefs.getDeviceMember();
+  const me = state.members.some((m) => m.id === by) ? by : null;
+  await requestPurchase({
+    title: String(name).trim(), category: 'grocery', memo: '식재료 다 먹음', status: 'approved',
+    requested_by: me, decided_by: me, decided_at: new Date().toISOString(),
+  });
+  return 'added';
+}
+
+/** '먹음' - 1끼/1개 줄이고, 0이 되면 목록에서 지운다. 다 먹은 식재료는 구매 목록에 자동으로 넣음. 반환: 'ok' | 'removed' | 'restocked' */
 export async function eatFoodItem(id) {
   const it = state.foodItems.find((i) => i.id === id);
   if (!it) return 'none';
   if (it.servings <= 1) {
     await removeFoodItem(id);
+    if (it.kind === 'ingredient') {
+      try {
+        if ((await restockIngredient(it.name)) === 'added') return 'restocked';
+      } catch (e) {
+        console.warn('구매 목록에 넣지 못했어요', e); // 먹음 처리 자체는 그대로
+      }
+    }
     return 'removed';
   }
   set({ foodItems: state.foodItems.map((i) => (i.id === id ? { ...i, servings: i.servings - 1 } : i)) });
