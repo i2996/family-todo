@@ -28,4 +28,4 @@ jobs:
         with:
           version: latest
       - name: notify-task 배포
-        run: supabase functions deploy notify-task --project-ref "$PROJECT_REF" --no-verify-jwt
+        run: supabase functions deploy notify-task --project-ref "$PROJECT_REF" --no-verify-jwt --yes # --yes: 확인 질문 없이 배포 (Actions 에서는 물어볼 수 없음)
