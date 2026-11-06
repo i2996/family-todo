@@ -70,7 +70,7 @@ document.addEventListener('click', (e) => {
   if (fn) fn(el, e);
 });
 document.addEventListener('keydown', (e) => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.task-body[data-act]')) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.task-body[data-act], .buy-body[data-act]')) {
     e.preventDefault();
     actions[e.target.dataset.act](e.target, e);
   }

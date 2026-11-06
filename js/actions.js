@@ -322,6 +322,8 @@ const patchPurchase = async (id, patch) => {
   }
 };
 /** 승인/반려 (status: 'approved' | 'rejected'). 요청한 사람에게 알림이 가요 */
+/** 구매 항목 고치기 (이름·종류·메모) */
+export const savePurchase = (id, patch) => patchPurchase(id, patch);
 export const decidePurchase = (id, status, byMemberId) =>
   patchPurchase(id, { status, decided_by: byMemberId, decided_at: new Date().toISOString() });
 /** 구매 목록 카테고리 → 먹거리 종류 (식재료·간식만 먹거리로 들어감) */
