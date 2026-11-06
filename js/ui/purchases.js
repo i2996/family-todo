@@ -17,7 +17,7 @@ function plannedRow(p, bought = false) {
   return `<li class="buy-item${bought ? ' bought' : ''}">
     <button class="check" data-act="buy-bought" data-id="${p.id}" data-bought="${bought ? '0' : '1'}" aria-pressed="${bought}" aria-label="${esc(p.title)} ${bought ? '구매 완료 취소' : '구매 완료'}"
       style="--mc:#b9bec8;--dc:#8fcfb0"><span></span></button>
-    <div class="buy-body"><div class="buy-title">${esc(p.title)}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
+    <div class="buy-body" data-act="buy-edit" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.title)} 수정"><div class="buy-title">${esc(p.title)}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
     ${bought ? `<button class="chip sm" data-act="buy-delete" data-id="${p.id}">지우기</button>` : ''}
   </li>`;
 }
@@ -34,7 +34,7 @@ function pendingRow(p, me, approver) {
   }
   const meta = [`요청 ${dotOf(p.requested_by)}${nameOf(p.requested_by) || '알 수 없음'}`, rejected && p.decided_by ? `반려 ${nameOf(p.decided_by)}` : ''].filter(Boolean).join(' · ');
   return `<li class="buy-item">
-    <div class="buy-body"><div class="buy-title">${esc(p.title)}${rejected ? '<em class="buy-tag">반려</em>' : ''}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
+    <div class="buy-body" data-act="buy-edit" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.title)} 수정"><div class="buy-title">${esc(p.title)}${rejected ? '<em class="buy-tag">반려</em>' : ''}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
     <div class="buy-acts">${acts.join('')}</div>
   </li>`;
 }
@@ -95,6 +95,26 @@ export function openBuyForm() {
   });
 }
 
+/* ---------- 구매 항목 수정 ---------- */
+function openBuyEditForm(p) {
+  const status = { pending: '승인 대기', approved: '구매 예정', rejected: '반려', bought: '구매 완료' }[p.status] || '';
+  openSheet({
+    title: '구매 항목 수정',
+    body: `<form data-form="buy-edit" data-id="${p.id}" autocomplete="off">
+      <input class="big-input" name="title" required maxlength="60" value="${esc(p.title)}">
+      <div class="field"><span class="label">종류</span><div class="chips">${CATEGORIES.map(
+        (c) => `<label class="chip pick"><input type="radio" name="category" value="${c.id}" ${p.category === c.id ? 'checked' : ''}><span>${c.icon} ${c.label}</span></label>`
+      ).join('')}</div></div>
+      <div class="field"><span class="label">수량 · 메모 (선택)</span><input name="memo" maxlength="80" placeholder="예: 2팩" value="${esc(p.memo)}"></div>
+      <p class="note">지금 상태: ${esc(status)}${p.requested_by && memberById(p.requested_by) ? ` · 요청 ${esc(memberById(p.requested_by).name)}` : ''} (수정해도 상태는 그대로예요)</p>
+      <div class="form-actions">
+        <button type="button" class="btn danger" data-act="buy-edit-delete" data-id="${p.id}">삭제</button>
+        <button type="submit" class="btn primary">저장</button>
+      </div>
+    </form>`,
+  });
+}
+
 const guardApprove = () => {
   if (canApprove(state.members, deviceMemberId())) return true;
   toast('승인 권한이 없어요. (구성원 설정의 "구매 요청 승인")');
@@ -108,6 +128,21 @@ export const actions = {
     A.refreshView();
   },
   'buy-add': () => openBuyForm(),
+  'buy-edit': (el) => {
+    const p = state.purchases.find((x) => x.id === el.dataset.id);
+    if (p) openBuyEditForm(p);
+  },
+  'buy-edit-delete': async (el) => {
+    const ok = await confirmDialog({ title: '이 항목을 삭제할까요?', choices: [{ label: '취소', value: false }, { label: '삭제', value: true, kind: 'danger' }] });
+    if (!ok) return;
+    try {
+      await A.removePurchase(el.dataset.id);
+      closeSheet();
+      toast('삭제했어요');
+    } catch (e) {
+      toast(hint(e));
+    }
+  },
   'buy-approve': async (el) => {
     if (!guardApprove()) return;
     try {
@@ -156,6 +191,21 @@ export const actions = {
 };
 
 export const forms = {
+  'buy-edit': async (f) => {
+    const fd = new FormData(f);
+    const title = (fd.get('title') || '').trim();
+    if (!title) return toast('무엇을 사야 하는지 적어주세요');
+    const btn = f.querySelector('[type=submit]');
+    btn.disabled = true;
+    try {
+      await A.savePurchase(f.dataset.id, { title, category: fd.get('category'), memo: (fd.get('memo') || '').trim() || null });
+      closeSheet();
+      toast('저장했어요');
+    } catch (e) {
+      btn.disabled = false;
+      toast(hint(e));
+    }
+  },
   buy: async (f) => {
     const fd = new FormData(f);
     const title = (fd.get('title') || '').trim();
