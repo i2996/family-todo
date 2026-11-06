@@ -280,8 +280,10 @@ function openEntryForm(entry = null, { rule = null } = {}) {
   const dateVal = isRule ? rule.start_date : entry?.entry_date || view.selected || todayISO();
   const kind = e?.kind || 'expense';
   const others = state.members.filter((m) => m.id !== me);
-  const vis = e ? visibilityOf(e) : others.length ? 'some' : 'private'; // 새 내역은 '선택'이 기본 (나 말고 가족이 없으면 '나만')
-  const shared = e?.shared_with || [];
+  // 새 내역: 가계부 탭을 보는 가족(구성원 권한 '가계부 탭 보기'가 켜진 사람)을 미리 체크해 둔 '선택'이 기본
+  // (그런 가족이 없으면 '나만')
+  const shared = e ? e.shared_with || [] : others.filter((m) => m.can_ledger !== false).map((m) => m.id);
+  const vis = e ? visibilityOf(e) : shared.length ? 'some' : 'private';
   const catChips = (list, k) =>
     `<div class="chips cat-${k}" ${kind === k ? '' : 'hidden'}>${list
       .map(
