@@ -40,6 +40,14 @@ export const prefs = {
   getPushWanted: () => read('pushWanted', null),
   setPushWanted: (v) => write('pushWanted', v),
   /** 설정 메뉴에서 펼쳐둔 묶음 { 묶음id: true/false } */
+  /** 가계부 '보는 사람 기억하기': { [구성원 id]: { vis, share } } (이 기기에만) */
+  getLedgerShare: (memberId) => (read('ledgerShare', {}) || {})[memberId] || null,
+  setLedgerShare: (memberId, v) => {
+    const all = read('ledgerShare', {}) || {};
+    if (v) all[memberId] = v;
+    else delete all[memberId];
+    write('ledgerShare', all);
+  },
   getMenuOpen: () => read('menuOpen', null),
   setMenuOpen: (v) => write('menuOpen', v),
 };

@@ -1,6 +1,7 @@
 // 가계부 탭: 월별 수입·지출 + 달력(전체/수입/지출) + 분류별 합계 + 날짜별 내역.
 // 구성원마다 PIN 을 만들고, 기기에서 한 번 열면 그 사람에게 보이는 내역이 계속 보인다 (서버가 걸러줌).
 import { state, set } from '../state.js';
+import { prefs } from '../prefs.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
@@ -281,9 +282,12 @@ function openEntryForm(entry = null, { rule = null } = {}) {
   const kind = e?.kind || 'expense';
   const others = state.members.filter((m) => m.id !== me);
   // 새 내역: 가계부 탭을 보는 가족(구성원 권한 '가계부 탭 보기'가 켜진 사람)을 미리 체크해 둔 '선택'이 기본
-  // (그런 가족이 없으면 '나만')
-  const shared = e ? e.shared_with || [] : others.filter((m) => m.can_ledger !== false).map((m) => m.id);
-  const vis = e ? visibilityOf(e) : shared.length ? 'some' : 'private';
+  // (그런 가족이 없으면 '나만'). '이 선택 기억하기'를 켜뒀으면 마지막으로 기억한 선택으로.
+  const fam = familyShare(others);
+  const memo = e ? null : prefs.getLedgerShare(me);
+  const remembered = memo ? { vis: memo.vis, share: (memo.share || []).filter((id) => others.some((m) => m.id === id)) } : null;
+  const shared = e ? e.shared_with || [] : remembered ? remembered.share : fam.share;
+  const vis = e ? visibilityOf(e) : remembered ? (remembered.vis === 'some' && !remembered.share.length ? fam.vis : remembered.vis) : fam.vis;
   const catChips = (list, k) =>
     `<div class="chips cat-${k}" ${kind === k ? '' : 'hidden'}>${list
       .map(
@@ -320,6 +324,12 @@ function openEntryForm(entry = null, { rule = null } = {}) {
         <div class="chips lg-share" ${vis === 'some' ? '' : 'hidden'} style="margin-top:8px">${others
           .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="checkbox" name="share" value="${m.id}" ${shared.includes(m.id) ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
           .join('')}</div>
+        ${
+          e
+            ? ''
+            : `<label class="lg-remember"><input type="checkbox" name="remember" data-change="ledger-remember" ${remembered ? 'checked' : ''}>
+                <span>📌 이 선택 기억하기 <small>켜면 다음에도 이 보는 사람으로 시작해요. 끄면 가계부 쓰는 가족이 기본이에요.</small></span></label>`
+        }
       </div>
       ${entry ? '' : state.repeatReady ? repeatSection(rule, dateVal) : repeatNotReady('supabase/ledger-repeat.sql')}
       <div class="form-actions">
@@ -370,6 +380,12 @@ function backupMine(prefix) {
   const data = A.exportMyLedger();
   A.downloadBackup(data, `${prefix}-${todayISO()}.json`);
   return data;
+}
+
+/** 보는 사람 기본값: 가계부 탭을 보는 가족을 체크한 '선택' (그런 가족이 없으면 '나만') */
+function familyShare(others) {
+  const share = others.filter((m) => m.can_ledger !== false).map((m) => m.id);
+  return { vis: share.length ? 'some' : 'private', share };
 }
 
 /** 쓰기가 거절되면(다른 기기에서 PIN 을 바꿔 잠긴 경우 등) 다시 열도록 안내 */
@@ -560,6 +576,17 @@ export const changes = {
     f.querySelector('.cat-expense').hidden = k !== 'expense';
     f.querySelector('.cat-income').hidden = k !== 'income';
   },
+  // '이 선택 기억하기'를 끄면 보는 사람을 바로 가족 기본으로 되돌림
+  'ledger-remember': (el) => {
+    if (el.checked) return;
+    const f = el.closest('form');
+    const me = A.ledgerMe();
+    const fam = familyShare(state.members.filter((m) => m.id !== me));
+    const radio = f.querySelector(`input[name=vis][value=${fam.vis}]`) || f.querySelector('input[name=vis][value=private]');
+    if (radio) radio.checked = true;
+    f.querySelectorAll('input[name=share]').forEach((c) => (c.checked = fam.share.includes(c.value)));
+    f.querySelector('.lg-share').hidden = f.elements.vis.value !== 'some';
+  },
   'ledger-vis': (el) => {
     const f = el.closest('form');
     f.querySelector('.lg-share').hidden = f.elements.vis.value !== 'some';
@@ -665,6 +692,8 @@ export const forms = {
     const vis = fd.get('vis') || 'private';
     const share = vis === 'some' ? fd.getAll('share').filter(Boolean) : [];
     if (vis === 'some' && !share.length) return toast('함께 볼 사람을 골라주세요');
+    // '이 선택 기억하기': 켜져 있으면 이번 선택을 이 기기에 기억, 꺼져 있으면 지움 (새 내역 화면에만 있음)
+    if (f.elements.remember) prefs.setLedgerShare(me, f.elements.remember.checked ? { vis, share } : null);
     const p = {
       kind,
       amount,
