@@ -25,3 +25,12 @@
 .buy-body[data-act] { cursor: pointer; border-radius: 10px; }
 .buy-body[data-act]:active { background: var(--accent-soft); }
 .buy-by { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 12px; }
+/* 필요한 날 */
+.buy-need { margin-left: 6px; padding: 0 7px; border-radius: 9px; font-style: normal; font-size: 11px; white-space: nowrap; background: #f1efe7; color: var(--ink); vertical-align: 1px; }
+.buy-need.soon { background: var(--peach); color: var(--peach-d); }
+.buy-need.late { background: var(--rose); color: var(--rose-d); }
+.buy-need-row { gap: 6px; margin-top: 8px; }
+.home-buy > li + li { border-top: 1.5px dotted var(--line); }
+.home-buy-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 2px; text-align: left; }
+.home-buy-row b { font-weight: 400; font-size: 16px; flex: 1; min-width: 0; word-break: break-word; }
+.home-buy-row small { font-size: 12px; }

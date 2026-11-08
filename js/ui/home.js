@@ -8,6 +8,7 @@ import { todayISO, addDays, longDate, labelDate, shortDate, dow, KO_DOW } from '
 import { esc, deviceMemberId, memberById, taskList, taskRow } from './components.js';
 import { isAssignedTo } from '../logic/assign.js';
 import { scheduleRow } from './schedule.js';
+import { dueSoon, needLabel, categoryOf } from '../logic/purchases.js';
 import { openMemberForm } from './settings.js';
 import * as A from '../actions.js';
 
@@ -53,6 +54,8 @@ export function renderHome() {
 
   const soonTasksShown = soonTasks.slice(0, 6);
   const soonScheduleShown = soonSchedule.slice(0, 5);
+  // 구매 목록 중 필요한 날이 7일 안(지난 것 포함)인 안 산 것
+  const buySoon = state.purchasesReady ? dueSoon(state.purchases, today, 7) : [];
   // 오늘/내일은 말로, 그 외는 짧게 (10/17 토)
   const whenLabel = (i) => {
     if (i.start < today) return '진행 중';
@@ -110,6 +113,23 @@ export function renderHome() {
             : `<p class="empty">가까운 일정이 없어요</p><button class="more-link" data-act="goto-schedule">달력으로 보기 ›</button>`
         }
       </section>
+      ${
+        buySoon.length
+          ? `<section>
+        <div class="sec-head"><h2>🛒 곧 사야 할 것</h2><span class="muted">7일 이내 · ${buySoon.length}개</span></div>
+        <ul class="home-buy">${buySoon
+          .slice(0, 5)
+          .map((p) => {
+            const l = needLabel(p, today);
+            return `<li><button class="home-buy-row" data-act="goto-tasks"><span>${categoryOf(p.category).icon}</span><b>${esc(p.title)}</b>${
+              p.status === 'pending' ? '<small class="muted">승인 대기</small>' : ''
+            }<em class="buy-need ${l.cls}">${esc(l.text)}</em></button></li>`;
+          })
+          .join('')}</ul>
+        ${buySoon.length > 5 ? `<button class="more-link" data-act="goto-tasks">+ ${buySoon.length - 5}개 더 보기</button>` : ''}
+      </section>`
+          : ''
+      }
     </div>
   </div>
   <button class="fab" data-act="add-task" aria-label="할 일 추가">+</button>`;

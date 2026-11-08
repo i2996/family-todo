@@ -3,9 +3,36 @@ import { state } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
-import { CATEGORIES, groupByCategory, canApprove } from '../logic/purchases.js';
+import { CATEGORIES, groupByCategory, canApprove, needLabel, thisWeekend } from '../logic/purchases.js';
+import { todayISO, addDays } from '../logic/dates.js';
 
 let buyTab = 'planned'; // 'planned' 구매예정 | 'pending' 승인 대기
+
+/** 필요한 날 표시 (예: '내일까지', '11/14(금)까지', '11/7 지남') */
+const needTag = (p) => {
+  const l = needLabel(p, todayISO());
+  return l ? `<em class="buy-need ${l.cls}">📅 ${esc(l.text)}</em>` : '';
+};
+
+/** 필요한 날 입력칸 + 빠른 버튼 (오늘/내일/이번 주말/지우기) */
+function needField(value = '') {
+  const t = todayISO();
+  return `<div class="field"><span class="label">필요한 날 (선택) <small>전날 저녁에 알려줘요</small></span>
+    <input type="date" name="need_date" value="${esc(value || '')}" min="${t}">
+    <div class="chips buy-need-row">
+      <button type="button" class="chip sm" data-act="buy-need-quick" data-d="${t}">오늘</button>
+      <button type="button" class="chip sm" data-act="buy-need-quick" data-d="${addDays(t, 1)}">내일</button>
+      <button type="button" class="chip sm" data-act="buy-need-quick" data-d="${thisWeekend(t)}">이번 주말</button>
+      <button type="button" class="chip sm" data-act="buy-need-quick" data-d="">지우기</button>
+    </div></div>`;
+}
+
+/** 필요한 날: 넣었거나 칸이 있을 때만 보냄 (purchases-due.sql 을 안 돌린 곳에서도 저장되게) */
+function withNeed(p, fd) {
+  const need = fd.get('need_date') || null;
+  if (need || state.purchases.some((x) => 'need_date' in x)) p.need_date = need;
+  return p;
+}
 
 const nameOf = (id) => (memberById(id) ? esc(memberById(id).name) : '');
 const dotOf = (id) => (memberById(id) ? `<i class="dot" style="--mc:${esc(memberById(id).color)}"></i>` : '');
@@ -17,7 +44,7 @@ function plannedRow(p, bought = false) {
   return `<li class="buy-item${bought ? ' bought' : ''}">
     <button class="check" data-act="buy-bought" data-id="${p.id}" data-bought="${bought ? '0' : '1'}" aria-pressed="${bought}" aria-label="${esc(p.title)} ${bought ? '구매 완료 취소' : '구매 완료'}"
       style="--mc:#b9bec8;--dc:#8fcfb0"><span></span></button>
-    <div class="buy-body" data-act="buy-edit" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.title)} 수정"><div class="buy-title">${esc(p.title)}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
+    <div class="buy-body" data-act="buy-edit" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.title)} 수정"><div class="buy-title">${esc(p.title)}${needTag(p)}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
     ${bought ? `<button class="chip sm" data-act="buy-delete" data-id="${p.id}">지우기</button>` : ''}
   </li>`;
 }
@@ -34,7 +61,7 @@ function pendingRow(p, me, approver) {
   }
   const meta = [`요청 ${dotOf(p.requested_by)}${nameOf(p.requested_by) || '알 수 없음'}`, rejected && p.decided_by ? `반려 ${nameOf(p.decided_by)}` : ''].filter(Boolean).join(' · ');
   return `<li class="buy-item">
-    <div class="buy-body" data-act="buy-edit" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.title)} 수정"><div class="buy-title">${esc(p.title)}${rejected ? '<em class="buy-tag">반려</em>' : ''}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
+    <div class="buy-body" data-act="buy-edit" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.title)} 수정"><div class="buy-title">${esc(p.title)}${rejected ? '<em class="buy-tag">반려</em>' : needTag(p)}</div>${p.memo ? `<div class="buy-sub">${esc(p.memo)}</div>` : ''}<div class="buy-sub">${meta}</div></div>
     <div class="buy-acts">${acts.join('')}</div>
   </li>`;
 }
@@ -85,6 +112,7 @@ export function openBuyForm() {
         (c, i) => `<label class="chip pick"><input type="radio" name="category" value="${c.id}" ${i === 0 ? 'checked' : ''}><span>${c.icon} ${c.label}</span></label>`
       ).join('')}</div></div>
       <div class="field"><span class="label">수량 · 메모 (선택)</span><input name="memo" maxlength="80" placeholder="예: 2팩"></div>
+      ${needField()}
       ${
         me
           ? `<p class="note buy-by">요청자: ${dotOf(me)}${nameOf(me)} <small>(이 기기 주인)</small></p>` // 이 기기 주인으로 자동 등록
@@ -110,6 +138,7 @@ function openBuyEditForm(p) {
         (c) => `<label class="chip pick"><input type="radio" name="category" value="${c.id}" ${p.category === c.id ? 'checked' : ''}><span>${c.icon} ${c.label}</span></label>`
       ).join('')}</div></div>
       <div class="field"><span class="label">수량 · 메모 (선택)</span><input name="memo" maxlength="80" placeholder="예: 2팩" value="${esc(p.memo)}"></div>
+      ${needField(p.need_date)}
       <p class="note">지금 상태: ${esc(status)}${p.requested_by && memberById(p.requested_by) ? ` · 요청 ${esc(memberById(p.requested_by).name)}` : ''} (수정해도 상태는 그대로예요)</p>
       <div class="form-actions">
         <button type="button" class="btn danger" data-act="buy-edit-delete" data-id="${p.id}">삭제</button>
@@ -124,7 +153,11 @@ const guardApprove = () => {
   toast('승인 권한이 없어요. (구성원 설정의 "구매 요청 승인")');
   return false;
 };
-const hint = (e) => (String(e && e.message).includes('purchases') ? '먼저 supabase/purchases.sql 을 실행해주세요' : errMsg(e));
+const hint = (e) => {
+  const m = String(e && e.message);
+  if (m.includes('need_date')) return '필요한 날을 쓰려면 먼저 supabase/purchases-due.sql 을 실행해주세요';
+  return m.includes('purchases') ? '먼저 supabase/purchases.sql 을 실행해주세요' : errMsg(e);
+};
 
 export const actions = {
   'buy-tab': (el) => {
@@ -132,6 +165,10 @@ export const actions = {
     A.refreshView();
   },
   'buy-add': () => openBuyForm(),
+  'buy-need-quick': (el) => {
+    const input = el.closest('form')?.elements.need_date;
+    if (input) input.value = el.dataset.d;
+  },
   'buy-edit': (el) => {
     const p = state.purchases.find((x) => x.id === el.dataset.id);
     if (p) openBuyEditForm(p);
@@ -202,7 +239,7 @@ export const forms = {
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
     try {
-      await A.savePurchase(f.dataset.id, { title, category: fd.get('category'), memo: (fd.get('memo') || '').trim() || null });
+      await A.savePurchase(f.dataset.id, withNeed({ title, category: fd.get('category'), memo: (fd.get('memo') || '').trim() || null }, fd));
       closeSheet();
       toast('저장했어요');
     } catch (e) {
@@ -217,7 +254,7 @@ export const forms = {
     if (!title) return toast('무엇을 사야 하는지 적어주세요');
     if (!by) return toast('요청자를 골라주세요');
     const autoApprove = !!memberById(by)?.can_approve; // 승인 권한이 있는 사람의 요청은 바로 구매예정
-    const p = { title, category: fd.get('category'), memo: (fd.get('memo') || '').trim() || null, requested_by: by };
+    const p = withNeed({ title, category: fd.get('category'), memo: (fd.get('memo') || '').trim() || null, requested_by: by }, fd);
     if (autoApprove) Object.assign(p, { status: 'approved', decided_by: by, decided_at: new Date().toISOString() });
     const btn = f.querySelector('[type=submit]');
     btn.disabled = true;
