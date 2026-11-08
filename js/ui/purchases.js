@@ -85,9 +85,13 @@ export function openBuyForm() {
         (c, i) => `<label class="chip pick"><input type="radio" name="category" value="${c.id}" ${i === 0 ? 'checked' : ''}><span>${c.icon} ${c.label}</span></label>`
       ).join('')}</div></div>
       <div class="field"><span class="label">수량 · 메모 (선택)</span><input name="memo" maxlength="80" placeholder="예: 2팩"></div>
-      <div class="field"><span class="label">요청자</span><div class="chips">${state.members
-        .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" ${me === m.id ? 'checked' : ''} required><span><i class="dot"></i>${esc(m.name)}</span></label>`)
-        .join('')}</div></div>
+      ${
+        me
+          ? `<p class="note buy-by">요청자: ${dotOf(me)}${nameOf(me)} <small>(이 기기 주인)</small></p>` // 이 기기 주인으로 자동 등록
+          : `<div class="field"><span class="label">요청자 <small>설정에서 이 기기 주인을 정하면 자동으로 들어가요</small></span><div class="chips">${state.members
+              .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" required><span><i class="dot"></i>${esc(m.name)}</span></label>`)
+              .join('')}</div></div>`
+      }
       <p class="note">구매 요청 승인 권한이 있는 사람이 승인하면 구매예정으로 옮겨져요. 권한이 있는 사람이 요청하면 바로 구매예정에 올라가요.</p>
       <div class="form-actions"><button type="submit" class="btn primary">요청하기</button></div>
     </form>`,
@@ -209,7 +213,7 @@ export const forms = {
   buy: async (f) => {
     const fd = new FormData(f);
     const title = (fd.get('title') || '').trim();
-    const by = fd.get('by');
+    const by = deviceMemberId() || fd.get('by'); // 이 기기 주인으로 자동 (모르면 고른 사람)
     if (!title) return toast('무엇을 사야 하는지 적어주세요');
     if (!by) return toast('요청자를 골라주세요');
     const autoApprove = !!memberById(by)?.can_approve; // 승인 권한이 있는 사람의 요청은 바로 구매예정

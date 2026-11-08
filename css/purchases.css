@@ -24,3 +24,4 @@
 .buy-done summary { cursor: pointer; padding: 6px 0; }
 .buy-body[data-act] { cursor: pointer; border-radius: 10px; }
 .buy-body[data-act]:active { background: var(--accent-soft); }
+.buy-by { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 12px; }
