@@ -225,6 +225,7 @@ export async function importAll(sid, data, { includeFood = false, includeEvents 
       requested_by: memberMap.get(p.requested_by) || null,
       decided_by: memberMap.get(p.decided_by) || null,
       decided_at: p.decided_at ?? null,
+      ...(p.need_date ? { need_date: p.need_date } : {}), // 필요한 날 (purchases-due.sql 적용 후 백업에만 있음)
     }));
     unwrap(await supabase.from('purchases').delete().eq('space_id', sid));
     if (rows.length) unwrap(await supabase.from('purchases').insert(rows));

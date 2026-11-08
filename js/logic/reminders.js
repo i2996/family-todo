@@ -26,7 +26,9 @@ const fireAt = (date, time, off) => new Date(new Date(`${date}T${time}:00`).getT
  * → [{ ref_kind, ref_id, task_id|event_id, occ_date, offset_min, fire_at(ISO), title, at_time, recipients }]
  * extra: 직접 추가한 쉬는 날 (반복 일정의 영업일 옮기기용)
  */
-export function desiredReminders({ tasks = [], events = [] }, now = new Date(), { days = 30, extra = [] } = {}) {
+export const PURCHASE_REMIND_AT = '20:00'; // 구매 요청: 필요한 날 전날 저녁 8시
+
+export function desiredReminders({ tasks = [], events = [], purchases = [], members = [] }, now = new Date(), { days = 30, extra = [] } = {}) {
   const today = toISO(now);
   const last = addDays(today, days + 1); // '하루 전' 알림까지 넉넉히
   const limit = now.getTime() + days * 864e5;
@@ -57,6 +59,14 @@ export function desiredReminders({ tasks = [], events = [] }, now = new Date(), 
       recipients: shared.length ? [...new Set([...shared, e.created_by].filter(Boolean))] : [], // 공유한 사람 + 작성자 (비면 온 가족)
     };
     for (const d of dates) if (d >= addDays(today, -1) && d <= last) push(base, d, time, offs);
+  }
+  // 구매 요청: 아직 안 산 것 중 필요한 날이 있으면 전날 저녁에, 승인 권한자 + 요청자에게 (승인 권한자가 없으면 온 가족)
+  const approvers = members.filter((m) => m.can_approve).map((m) => m.id);
+  for (const p of purchases) {
+    if (!p.need_date || (p.status !== 'pending' && p.status !== 'approved')) continue;
+    if (p.need_date < today || p.need_date > last) continue;
+    const recipients = approvers.length ? [...new Set([...approvers, p.requested_by].filter(Boolean))] : [];
+    push({ ref_kind: 'purchase', ref_id: p.id, purchase_id: p.id, title: p.title, recipients }, p.need_date, PURCHASE_REMIND_AT, [1440]);
   }
   return out;
 }

@@ -51,6 +51,10 @@ export function offsetLabel(min) {
 
 export function buildMessage({ kind, task, creatorName, now = new Date() }) {
   const by = creatorName ? `\n등록: ${creatorName}` : '';
+  if (kind === 'reminder' && task.ref_kind === 'purchase') {
+    // 구매 요청 '필요한 날' 전날 저녁 알림
+    return { title: `🛒 내일까지 사야 해요: ${task.title}`, body: '구매 목록을 확인해 주세요', tag: `reminder-${task.ref_id}-${task.occ_date}-${task.offset_min}` };
+  }
   if (kind === 'reminder') {
     const isTask = task.ref_kind === 'task';
     const at = task.at_time ? String(task.at_time).slice(0, 5) : '';

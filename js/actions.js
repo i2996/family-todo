@@ -218,7 +218,12 @@ async function doSyncReminders() {
   if (!state.space || !state.remindReady || !pushDb.pushConfigured()) return;
   const now = new Date();
   const pending = await remindersDb.listPending(sid(), now.toISOString());
-  const want = desiredReminders({ tasks: state.tasks, events: state.eventsReady ? state.events : [] }, now, { days: 30, extra: ledgerHolidays() });
+  const purchaseDue = state.purchasesReady && state.purchases.some((x) => 'need_date' in x); // purchases-due.sql 적용 후에만
+  const want = desiredReminders(
+    { tasks: state.tasks, events: state.eventsReady ? state.events : [], purchases: purchaseDue ? state.purchases : [], members: state.members },
+    now,
+    { days: 30, extra: ledgerHolidays() }
+  );
   const { toInsert, toDelete } = diffReminders(want, pending);
   if (toDelete.length) await remindersDb.deleteIds(toDelete);
   if (toInsert.length) await remindersDb.insertMany(sid(), toInsert);
@@ -308,6 +313,7 @@ export async function removePlan(id) {
 export async function requestPurchase(p) {
   const row = await purchasesDb.insertPurchase(sid(), p);
   set({ purchases: [...state.purchases, row] });
+  queueReminderSync(); // 필요한 날 알림
   return row;
 }
 const patchPurchase = async (id, patch) => {
@@ -323,7 +329,10 @@ const patchPurchase = async (id, patch) => {
 };
 /** 승인/반려 (status: 'approved' | 'rejected'). 요청한 사람에게 알림이 가요 */
 /** 구매 항목 고치기 (이름·종류·메모) */
-export const savePurchase = (id, patch) => patchPurchase(id, patch);
+export const savePurchase = async (id, patch) => {
+  await patchPurchase(id, patch);
+  queueReminderSync(); // 필요한 날이 바뀌면 알림도
+};
 export const decidePurchase = (id, status, byMemberId) =>
   patchPurchase(id, { status, decided_by: byMemberId, decided_at: new Date().toISOString() });
 /** 구매 목록 카테고리 → 먹거리 종류 (식재료·간식만 먹거리로 들어감) */

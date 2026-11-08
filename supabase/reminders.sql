@@ -58,6 +58,12 @@ begin
     ) then
       continue;
     end if;
+    -- 이미 샀거나 반려된 구매 요청은 보내지 않음 (purchases-due.sql 을 돌린 뒤에만 해당)
+    if (to_jsonb(r) ->> 'purchase_id') is not null and exists (
+      select 1 from public.purchases p where p.id = (to_jsonb(r) ->> 'purchase_id')::uuid and p.status in ('bought', 'rejected')
+    ) then
+      continue;
+    end if;
     begin
       perform public.call_notify(jsonb_build_object('kind', 'reminder', 'row', to_jsonb(r)));
       n := n + 1;
