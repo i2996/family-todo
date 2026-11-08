@@ -18,8 +18,11 @@ export function expiryStatus(it, today) {
   return { cls: 'ok', text: `${d}일 남음` };
 }
 
+/** 남은 기한이 짧은 순서 (기한 없음은 맨 뒤, 같으면 이름순) */
 export const sortByExpiry = (items, today) =>
-  items.slice().sort((a, b) => (daysLeft(a, today) ?? 99999) - (daysLeft(b, today) ?? 99999));
+  items
+    .slice()
+    .sort((a, b) => (daysLeft(a, today) ?? 99999) - (daysLeft(b, today) ?? 99999) || String(a.name).localeCompare(String(b.name), 'ko'));
 
 /**
  * 오늘부터 7일치 반찬을 자동 배정한다. 반환: { 'YYYY-MM-DD': [itemId, ...] }

@@ -101,7 +101,10 @@ function banchanView(today) {
     })
     .join('');
 
-  const sorted = F.sortByExpiry(items, today);
+  // 냉장고 / 냉동실로 나눠서 각각 남은 기한이 짧은 순서로
+  const groups = ['fridge', 'frozen', 'room']
+    .map((s) => ({ s, list: F.sortByExpiry(items.filter((it) => it.storage === s), today) }))
+    .filter((g) => g.list.length);
   return `
   <div class="sec-head"><h2>이번 주 식단</h2><button class="chip sm" data-act="food-regen">${hasPlan ? '자동으로 다시 짜기' : '자동으로 짜기'}</button></div>
   ${hasPlan ? '' : '<p class="food-note">아직 이번 주 식단이 없어요. 위 버튼을 누르면 유통기한이 급한 반찬부터 알아서 나눠줘요.</p>'}
@@ -110,7 +113,13 @@ function banchanView(today) {
   ${missed.length ? `<p class="food-warn">참고: ${missed.map((m) => esc(m.name)).join(', ')}은(는) 이번 주 안에 유통기한이 끝나는데 아직 계획에 없어요.</p>` : ''}
 
   <div class="sec-head" style="margin-top:26px"><h2>냉장고 · 냉동실 반찬</h2><span class="muted">${items.length}개</span></div>
-  <ul class="food-list">${sorted.map((it) => itemRow(it, today)).join('')}</ul>`;
+  ${groups
+    .map(
+      (g) => `<section class="day-group">
+        <h3 class="day-head">${STORAGE_ICON[g.s]} ${STORAGE[g.s]} <small>${g.list.length}개</small></h3>
+        <ul class="food-list">${g.list.map((it) => itemRow(it, today)).join('')}</ul></section>`
+    )
+    .join('')}`;
 }
 
 /* ---------- 식재료 · 간식 (보관 장소별 재고) ---------- */
