@@ -39,6 +39,17 @@ function itemRow(it, today) {
   </li>`;
 }
 
+/** 보관 장소 묶음 (❄️ 냉장 / 🧊 냉동 / 🏠 실온). 제목을 누르면 접고 펼침 (이 기기에 기억) */
+function storageGroup(kind, g, today) {
+  const key = `${kind}:${g.s}`;
+  const folded = prefs.isFoodFolded(key);
+  return `<section class="day-group food-fold${folded ? ' folded' : ''}">
+    <button class="day-head fold-head" data-act="food-fold" data-key="${key}" aria-expanded="${!folded}">
+      <span class="fold-arrow">${folded ? '▸' : '▾'}</span>${STORAGE_ICON[g.s]} ${STORAGE[g.s]} <small>${g.list.length}개</small>
+    </button>
+    ${folded ? '' : `<ul class="food-list">${g.list.map((it) => itemRow(it, today)).join('')}</ul>`}</section>`;
+}
+
 /* ---------- 반찬 ---------- */
 function banchanView(today) {
   const items = itemsOf('banchan');
@@ -115,9 +126,7 @@ function banchanView(today) {
   <div class="sec-head" style="margin-top:26px"><h2>냉장고 · 냉동실 반찬</h2><span class="muted">${items.length}개</span></div>
   ${groups
     .map(
-      (g) => `<section class="day-group">
-        <h3 class="day-head">${STORAGE_ICON[g.s]} ${STORAGE[g.s]} <small>${g.list.length}개</small></h3>
-        <ul class="food-list">${g.list.map((it) => itemRow(it, today)).join('')}</ul></section>`
+      (g) => storageGroup('banchan', g, today)
     )
     .join('')}`;
 }
@@ -139,9 +148,7 @@ function stockView(kind, today) {
   ${soon.length ? `<p class="food-warn">곧 기한이 끝나요: ${soon.map((i) => esc(i.name)).join(', ')}</p>` : ''}
   ${groups
     .map(
-      (g) => `<section class="day-group">
-        <h3 class="day-head">${STORAGE_ICON[g.s]} ${STORAGE[g.s]} <small>${g.list.length}개</small></h3>
-        <ul class="food-list">${g.list.map((it) => itemRow(it, today)).join('')}</ul></section>`
+      (g) => storageGroup(kind, g, today)
     )
     .join('')}`;
 }
@@ -209,6 +216,10 @@ export const actions = {
     set();
   },
   'food-add': () => openFoodForm({ kind: subTab() }),
+  'food-fold': (el) => {
+    prefs.setFoodFolded(el.dataset.key, !prefs.isFoodFolded(el.dataset.key));
+    set();
+  },
   'food-edit': (el) => {
     const item = state.foodItems.find((i) => i.id === el.dataset.id);
     if (item) openFoodForm({ kind: item.kind, item });

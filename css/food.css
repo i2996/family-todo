@@ -12,3 +12,9 @@
 .day-sub.on { color: var(--ink); background: var(--butter-soft); border-color: var(--butter-d); }
 .out-tag { margin-top: 2px; padding: 0 7px; border-radius: 9px; font-style: normal; font-size: 11px; background: var(--butter); color: var(--butter-d); }
 .food-day.out .food-day-label { background: var(--butter-soft); }
+
+/* 냉장·냉동 묶음 접기 */
+.fold-head { width: 100%; text-align: left; padding: 6px 2px; border-radius: 10px; cursor: pointer; }
+.fold-head:active { background: var(--accent-soft); }
+.fold-arrow { display: inline-block; width: 18px; color: var(--ink); font-size: 17px; }
+.food-fold.folded .fold-head { opacity: .8; }

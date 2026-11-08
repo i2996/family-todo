@@ -24,6 +24,14 @@ export const prefs = {
   getFilter: () => ({ member: null, period: 'today', status: 'pending', ...read('filter', {}) }),
   setFilter: (f) => write('filter', f),
   getFoodTab: () => read('foodTab', 'banchan'),
+  /** 먹거리 보관 묶음 접기 { 'banchan:fridge': true(접힘) } (이 기기에만) */
+  isFoodFolded: (key) => !!(read('foodFold', {}) || {})[key],
+  setFoodFolded: (key, folded) => {
+    const all = read('foodFold', {}) || {};
+    if (folded) all[key] = true;
+    else delete all[key];
+    write('foodFold', all);
+  },
   setFoodTab: (v) => write('foodTab', v),
   /** 테마 (이 기기에만 저장) */
   getTheme: () => read('theme', 'pastel'),
