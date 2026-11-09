@@ -9,6 +9,7 @@ export const EXPENSE_CATS = [
   { id: '교육', icon: '📚' },
   { id: '의료', icon: '💊' },
   { id: '문화·여가', icon: '🎡' },
+  { id: '미용', icon: '💇' },
   { id: '경조사', icon: '🎁' },
   { id: '공과금', icon: '🧾' },
   { id: '통신', icon: '📱' },
