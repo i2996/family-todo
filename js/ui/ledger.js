@@ -85,8 +85,16 @@ export function renderLedger() {
   const thisYm = today0.slice(0, 7);
   const signed = (n) => `${n < 0 ? '-' : ''}${won(Math.abs(n))}`;
   // 남은 돈: 이번 달은 오늘까지, 지난 달은 그 달 전체, 다음 달 이후는 '예정'
-  const bal =
-    ym < thisYm
+  // 달력에서 날짜를 골랐으면: 그 달 1일부터 그 날까지의 남은 돈 (미래면 예정 내역까지 넣은 예상)
+  const selDay = view.selected && view.selected.slice(0, 7) === ym ? view.selected : null;
+  const selBal = selDay ? summarizeAsOf(month, selDay).now.balance : null;
+  const bal = selDay
+    ? {
+        label: selDay > today0 ? '남은 돈 예상' : '남은 돈',
+        value: signed(selBal),
+        subs: [`${Number(selDay.slice(5, 7))}/${Number(selDay.slice(8))}${selDay === today0 ? '(오늘)' : ''} 기준`, ...(selDay > today0 ? ['예정 내역 포함'] : [])],
+      }
+    : ym < thisYm
       ? { label: '남은 돈', value: signed(asOf.total.balance), subs: [] }
       : ym > thisYm
         ? { label: '남은 돈', value: signed(asOf.total.balance), subs: ['예정'] }
@@ -173,7 +181,7 @@ export function renderLedger() {
   <div class="lg-sum">
     <div><small>수입</small><b class="income">${won(sum.income)}</b></div>
     <div><small>지출</small><b class="expense">${won(sum.expense)}</b></div>
-    <div class="lg-bal"><small>${bal.label}</small><b class="${asOf.now.balance < 0 && ym === thisYm ? 'expense' : ''}">${bal.value}</b>${bal.subs.map((s) => `<em>${esc(s)}</em>`).join('')}</div>
+    <div class="lg-bal${selDay ? ' picked' : ''}"><small>${bal.label}</small><b class="${(selDay ? selBal < 0 : asOf.now.balance < 0 && ym === thisYm) ? 'expense' : ''}">${bal.value}</b>${bal.subs.map((s) => `<em>${esc(s)}</em>`).join('')}</div>
   </div>
   <div class="seg wide lg-mode" role="tablist">${MODES.map(
     (x) => `<button class="${view.mode === x.id ? 'on' : ''}" data-act="ledger-mode" data-v="${x.id}" role="tab" aria-selected="${view.mode === x.id}">${x.label}</button>`
