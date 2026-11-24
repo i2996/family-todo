@@ -1,8 +1,10 @@
 // 일정 탭 아래 '계획' 박스: 날짜가 정해지지 않은 외출·여행을 적어두는 목록
-import { state } from '../state.js';
+import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId } from './components.js';
+import { focusScheduleDate } from './schedule.js';
+import { todayISO } from '../logic/dates.js';
 
 export function renderPlanBox() {
   if (!state.plansReady) {
@@ -37,6 +39,17 @@ export function openPlanForm(plan = null) {
       <div class="field"><span class="label">작성자</span><div class="chips">${state.members
         .map((m) => `<label class="chip pick" style="--mc:${esc(m.color)}"><input type="radio" name="by" value="${m.id}" ${by === m.id ? 'checked' : ''}><span><i class="dot"></i>${esc(m.name)}</span></label>`)
         .join('')}</div></div>
+      ${
+        p
+          ? `<div class="field plan-when"><span class="label">📅 날짜가 정해졌나요?</span>
+              <div class="grid2">
+                <div class="field"><span class="label">가는 날</span><input type="date" name="start_date" value="${todayISO()}"></div>
+                <div class="field"><span class="label">오는 날 (하루면 비움)</span><input type="date" name="end_date"></div>
+              </div>
+              <button type="button" class="btn wide plan-go" data-act="plan-schedule" data-id="${p.id}">달력에 올리기</button>
+              <small class="note">외출·여행으로 달력에 올라가고, 계획 목록에서는 빠져요.</small></div>`
+          : ''
+      }
       <div class="form-actions">
         ${p ? `<button type="button" class="btn danger" data-act="plan-delete" data-id="${p.id}">삭제</button>` : ''}
         <button type="submit" class="btn primary">${p ? '저장' : '추가'}</button>
@@ -55,6 +68,32 @@ export const actions = {
   'plan-edit': (el) => {
     const p = state.plans.find((x) => x.id === el.dataset.id);
     if (p) openPlanForm(p);
+  },
+  // 날짜가 정해진 계획 → 외출·여행으로 달력에 올리고 계획에서는 지움
+  'plan-schedule': async (el) => {
+    const f = el.closest('form');
+    const p = state.plans.find((x) => x.id === el.dataset.id);
+    if (!f || !p) return;
+    const start = f.elements.start_date.value;
+    const end = f.elements.end_date.value || null;
+    const title = f.elements.title.value.trim() || p.title;
+    if (!start) return toast('가는 날을 골라주세요');
+    if (end && end < start) return toast('오는 날이 가는 날보다 빠를 수 없어요');
+    el.disabled = true;
+    try {
+      await A.addTrip({
+        title, icon: '🏕️', start_date: start, end_date: end && end !== start ? end : null, place: null,
+        memo: f.elements.memo.value.trim() || null, created_by: f.elements.by.value || p.created_by || null,
+      });
+      await A.removePlan(p.id);
+      focusScheduleDate(start); // 달력을 그 날로
+      closeSheet();
+      set({ tab: 'schedule', tripId: null });
+      toast('달력에 올렸어요! 눌러서 준비할 일을 추가할 수 있어요');
+    } catch (e) {
+      el.disabled = false;
+      toast(hint(e));
+    }
   },
   'plan-delete': async (el) => {
     const ok = await confirmDialog({ title: '이 계획을 삭제할까요?', choices: [{ label: '취소', value: false }, { label: '삭제', value: true, kind: 'danger' }] });

@@ -12,6 +12,12 @@ import { todayISO, addDays, parts, pad, startOfWeekSun, eachDay, KO_DOW, longDat
 const TRIP_COLOR = '#8dd0b5';
 const view = { y: null, m: null, selected: null };
 
+/** 달력을 그 날짜가 있는 달로 옮기고 그 날을 골라둠 (다른 화면에서 일정을 만든 뒤 바로 보이게) */
+export function focusScheduleDate(d) {
+  [view.y, view.m] = parts(d);
+  view.selected = d;
+}
+
 const itemColor = (i) => {
   const m = i.by ? memberById(i.by) : null;
   return m ? m.color : i.kind === 'trip' ? TRIP_COLOR : NEUTRAL;
