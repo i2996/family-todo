@@ -3,7 +3,7 @@ import { state, set } from '../state.js';
 import * as A from '../actions.js';
 import { openSheet, closeSheet, confirmDialog } from './sheet.js';
 import { esc, toast, errMsg, memberById, deviceMemberId, NEUTRAL } from './components.js';
-import { toItems, onDate, byDateMap, visibleEvents, sharedOf, eventRule } from '../logic/schedule.js';
+import { toItems, onDate, byDateMap, visibleEvents, sharedOf, eventRule, weekLanes } from '../logic/schedule.js';
 import { repeatLabel } from '../logic/ledger.js';
 import { repeatSection, syncRep, readRepeat, remindField, readRemind } from './repeat.js';
 import { renderPlanBox } from './plans.js';
@@ -60,19 +60,37 @@ export function renderSchedule() {
   const items = toItems(events, state.trips, { from: gridStart, to: gridEnd, extra: A.ledgerHolidays() }); // 반복 일정은 달력 기간만큼 펼침
   const map = byDateMap(items, gridStart, gridEnd);
 
+  // 여러 날 일정: 주마다 이어진 막대로, 제목은 그 주의 시작 칸에만
+  const laneOf = new Map();
+  const restOf = new Map();
+  for (let w = 0; w < 6; w++) {
+    const { lanes, rest } = weekLanes(items, addDays(gridStart, w * 7));
+    for (const [d, v] of lanes) laneOf.set(d, v);
+    for (const [d, v] of rest) restOf.set(d, v);
+  }
   const cells = eachDay(gridStart, gridEnd)
     .map((d) => {
       const [, m, dd] = parts(d);
       const dayItems = map.get(d) || [];
+      const bars = (laneOf.get(d) || [])
+        .map((seg) => {
+          if (!seg) return '<span class="cal-bar empty"></span>';
+          const i = seg.item;
+          const cls = `cal-bar${seg.rs ? ' rs' : ''}${seg.re ? ' re' : ''}${seg.last ? ' we' : ''}`;
+          const label = seg.first ? `<span class="cal-bar-t" style="--span:${seg.span}">${i.kind === 'trip' ? esc(i.icon) : ''}${esc(i.title)}</span>` : '';
+          return `<span class="${cls}" style="--mc:${esc(itemColor(i))}">${label}</span>`;
+        })
+        .join('');
+      // 하루짜리 일정(+ 줄에 못 들어간 여러 날 일정): 1개면 작은 글씨, 2개 이상이면 색 점
+      const singles = [...dayItems.filter((i) => i.start === i.end), ...(restOf.get(d) || [])];
       let mark = '';
-      if (dayItems.length === 1) {
-        // 일정이 1개면 작은 글씨로 제목 표시 (작성자 색 배경)
-        const i = dayItems[0];
+      if (singles.length === 1) {
+        const i = singles[0];
         mark = `<span class="cal-text" style="--mc:${esc(itemColor(i))}">${i.kind === 'trip' ? esc(i.icon) : ''}${esc(i.title)}</span>`;
-      } else if (dayItems.length > 1) {
-        // 2개 이상이면 일정마다 작성자 색 점 (최대 4개)
-        mark = `<span class="dots">${dayItems.slice(0, 4).map((i) => `<i class="dot" style="--mc:${esc(itemColor(i))}"></i>`).join('')}</span>`;
+      } else if (singles.length > 1) {
+        mark = `<span class="dots">${singles.slice(0, 4).map((i) => `<i class="dot" style="--mc:${esc(itemColor(i))}"></i>`).join('')}</span>`;
       }
+      if (bars) mark = `<span class="cal-bars">${bars}</span>${mark}`;
       return `<button class="day${m !== view.m ? ' other' : ''}${d === today ? ' today' : ''}${d === view.selected ? ' sel' : ''}"
         data-act="pick-date" data-date="${d}" aria-label="${longDate(d)}">
         <span class="n">${dd}</span>${mark}
