@@ -86,3 +86,42 @@ export function upcoming(items, today, days = 7) {
     .map((i) => ({ ...i, date: i.start > today ? i.start : today }))
     .sort((a, b) => a.date.localeCompare(b.date) || byTime(a, b));
 }
+
+/**
+ * 달력 한 주(weekStart~+6일)의 여러 날 일정 막대 자리 정하기.
+ * 여러 날 일정은 주마다 같은 줄(lane)에 이어진 막대로 그리고, 제목은 그 주의 시작 칸에만 씀.
+ * → { lanes: Map(날짜 → [ {item, first, rs, re, span} | null ...]), rest: Map(날짜 → [줄에 못 들어간 여러 날 일정]) }
+ *   first: 이 주에서 막대가 시작하는 칸 (제목을 씀), span: 그 칸부터 이 주에서 이어지는 날 수
+ *   rs/re: 일정이 진짜로 시작/끝나는 날 (둥근 모서리)
+ */
+export function weekLanes(items, weekStart, maxLanes = 3) {
+  const weekEnd = addDays(weekStart, 6);
+  const multi = items
+    .filter((i) => i.start !== i.end && i.start <= weekEnd && i.end >= weekStart)
+    .sort((a, b) => a.start.localeCompare(b.start) || b.end.localeCompare(a.end) || a.title.localeCompare(b.title));
+  const laneEnds = []; // 줄마다 마지막으로 차지한 날
+  const lanes = new Map();
+  const rest = new Map();
+  const days = eachDay(weekStart, weekEnd);
+  for (const d of days) lanes.set(d, []);
+  for (const i of multi) {
+    const s = i.start > weekStart ? i.start : weekStart;
+    const e = i.end < weekEnd ? i.end : weekEnd;
+    let lane = laneEnds.findIndex((end) => end < s);
+    if (lane === -1 && laneEnds.length < maxLanes) lane = laneEnds.length;
+    if (lane === -1) {
+      for (const d of eachDay(s, e)) rest.set(d, [...(rest.get(d) || []), i]);
+      continue;
+    }
+    laneEnds[lane] = e;
+    for (const d of eachDay(s, e)) {
+      lanes.get(d)[lane] = { item: i, first: d === s, rs: d === i.start, re: d === i.end, last: d === e, span: diffDays(d, e) + 1 };
+    }
+  }
+  // 그 주에 쓰인 줄 수만큼 빈 자리도 채워서 칸마다 높이를 맞춤
+  for (const d of days) {
+    const arr = lanes.get(d);
+    for (let k = 0; k < laneEnds.length; k++) if (!arr[k]) arr[k] = null;
+  }
+  return { lanes, rest };
+}
