@@ -66,3 +66,6 @@ input[type=time] { width: 100%; min-height: 46px; padding: 8px 12px; border-radi
   font-size: 10px; line-height: 15px; color: var(--ink); text-align: left;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.plan-when { margin-top: 18px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); }
+.plan-when .grid2 .field { margin-top: 6px; }
+.plan-go { border-color: var(--accent-d); }
