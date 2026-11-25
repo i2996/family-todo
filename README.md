@@ -9,7 +9,7 @@
 3. **SQL Editor** 에 `supabase/schema.sql` 전체를 붙여넣고 Run → 이어서 `supabase/food.sql` 도 붙여넣고 Run (먹거리 탭용, 안 돌려도 나머지 기능은 동작)
 4. **Project Settings → API** 의 `Project URL` 과 `anon public key` 를 `js/config.js` 에 입력
 5. 폴더 전체를 **폴더 구조 그대로** **GitHub Pages / Netlify / Vercel** 등 HTTPS 정적 호스팅에 올리기 (PWA 설치와 공유 기능은 HTTPS 필요)
-   - 내 도메인 연결: DNS 에 `family` → `i2996.github.io` CNAME 을 먼저 만들고, 그다음 저장소에 `CNAME` 파일(`family.wurii.com`)을 넣어요. (순서가 바뀌면 사이트가 잠깐 안 열려요)
+   - 지금 주소: **https://family.wurii.com** (GitHub Pages + 내 도메인: DNS `family` → `i2996.github.io` CNAME, 저장소의 `CNAME` 파일. 저장소 Settings → Pages 에서 Enforce HTTPS)
    - `js/data/food.js` 와 `js/logic/food.js` 처럼 **이름이 같아도 폴더가 다른 파일**이 있어요. 한 폴더에 합치면 앱이 시작되지 않아요.
    - 앱이 8초 안에 시작되지 않으면 어떤 파일이 없는지 알려주는 점검 화면이 나와요.
 6. 폰에서 열어 **가족 공간 만들기** → 가족에게 코드(또는 초대 링크)와 비밀번호 전달 → 홈 화면에 추가
