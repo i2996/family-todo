@@ -43,6 +43,7 @@ const MENU = [
     items: [
       { act: 'menu-backup', icon: '💾', title: '데이터 백업', sub: 'JSON 파일로 내려받기 (가계부는 가계부 탭에서 따로)' },
       { act: 'menu-restore', icon: '♻️', title: '데이터 복원', sub: '백업 파일로 되돌리기' },
+      { act: 'menu-privacy', icon: '🔐', title: '개인정보처리방침', sub: '어떤 정보를 어떻게 보관하는지' },
     ],
   },
 ];
@@ -459,6 +460,7 @@ export const actions = {
     }
   },
   'menu-restore': () => document.getElementById('restore-input').click(),
+  'menu-privacy': () => window.open('privacy.html', '_blank', 'noopener'),
 };
 
 export const changes = {
